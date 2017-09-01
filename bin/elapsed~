@@ -1,6 +1,0 @@
-#!/usr/bin/env python
-if __name__ == '__main__':
-    import sys
-    from fifimon import start
-
-    sys.exit(start.main())
