@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from elapsed import mainwindow
+import mainwindow
 
 def main():
     mainwindow.main()

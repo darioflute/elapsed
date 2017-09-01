@@ -1,0 +1,7 @@
+Copyright 2017 -  Dario Fadda.
+
+This program allows one to perform accurate photometry of multi-wavelength
+data to obtain optimal SEDs.
+
+
+It is distributed with GNU Public License 3.
