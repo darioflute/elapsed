@@ -21,7 +21,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from PyQt5.QtWidgets import (QWidget, QMainWindow, QMessageBox,QToolBar,QAction,QStatusBar,QSizePolicy,
-                             QHBoxLayout, QVBoxLayout, QApplication, QListWidget,QSplitter,QMenu,QTabWidget)
+                             QHBoxLayout, QVBoxLayout, QStackedLayout, QApplication, QListWidget,QSplitter,QMenu,QTabWidget)
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal, QObject
 
@@ -51,7 +51,6 @@ class ImageCanvas(MplCanvas):
         self.axes1 = self.fig.add_subplot(111)
         self.axes1.set_xlim([0,1])
         self.axes1.set_ylim([0,10])
-        pass
 
 
 class ProfileCanvas(MplCanvas):
@@ -177,21 +176,9 @@ class ApplicationWindow(QMainWindow):
         # Define main widget
         self.main_widget = QWidget(self)
 
-        # Define sub widgets
-        self.ic1 = ImageCanvas(self.main_widget, width=9, height=9, dpi=100)
-        self.ic2 = ImageCanvas(self.main_widget, width=9, height=9, dpi=100)
-        self.ic3 = ImageCanvas(self.main_widget, width=9, height=9, dpi=100)
-        self.ic4 = ImageCanvas(self.main_widget, width=9, height=9, dpi=100)
-        self.ic5 = ImageCanvas(self.main_widget, width=9, height=9, dpi=100)
-        #self.mpl_toolbar1 = NavigationToolbar(self.ic1, self)
-        #self.mpl_toolbar1.pan('on')
-        #self.mpl_toolbar1.setObjectName('tb1')
-        #self.tb2 = NavigationToolbar(self.ic2, self)
-        #self.tb2.pan('on')
-        #self.tb2.setObjectName('tb2')
 
-        self.pc = ProfileCanvas(self.main_widget, width=2, height=4, dpi=100)
-        self.sc = SedCanvas(self.main_widget, width=2, height=4, dpi=100)
+        self.pc = ProfileCanvas(self.main_widget, width=4, height=1.5, dpi=100)
+        self.sc = SedCanvas(self.main_widget, width=4, height=2, dpi=100)
 
 
         # Status Bar
@@ -209,26 +196,58 @@ class ApplicationWindow(QMainWindow):
 
         tabs = QTabWidget()
         tabs.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
-        tabs.layout = QVBoxLayout()
-        tabs.layout.setSpacing(0)
-        tabs.layout.setContentsMargins(0,0,0,0)        
+        #tabs.layout = QStackedLayout()
+        #tabs.layout.setSpacing(0)
+        #tabs.layout.setContentsMargins(0,0,0,0)        
         #tabs.resize(450,450)
 
-        tab1 = QWidget()
-        tab2 = QWidget()
-        tab3 = QWidget()
-        tab4 = QWidget()
-        tab5 = QWidget()
+        # tab1 = QWidget()
+        # tab2 = QWidget()
+        # tab3 = QWidget()
+        # tab4 = QWidget()
+        # tab5 = QWidget()
         
-        tablist = [tab1,tab2,tab3,tab4,tab5]
-        iclist  = [self.ic1,self.ic2,self.ic3,self.ic4,self.ic5]
+        # tablist = [tab1,tab2,tab3,tab4,tab5]
+        #iclist  = [self.ic1,self.ic2,self.ic3,self.ic4,self.ic5]
         bands = ['u','g','r','i','z']
 
-        for t,ic,b in zip(tablist,iclist,bands):            
+        tabi = []
+        ici = []
+        for b in bands:
+            t = QWidget()
             t.layout = QVBoxLayout()
+            tabs.addTab(t, b)
+            ic = ImageCanvas(t, width=4, height=4, dpi=100)
+            ntb = NavigationToolbar(ic, self)
+            ntb.pan('on')
             t.layout.addWidget(ic)
-            tabs.addTab(t,b)
+            t.layout.addWidget(ntb)
+            t.setLayout(t.layout)
+            tabi.append(t)
+            ici.append(ic)
+            
+        # for t,b in zip(tablist,bands):            
+        #     t.layout = QVBoxLayout()
+        #     tabs.addTab(t,b)
 
+
+        # # Define sub widgets
+        # self.ic1 = ImageCanvas(tab1, width=4, height= 4, dpi=100)
+        # self.ic2 = ImageCanvas(tab2, width=4, height= 4, dpi=100)
+        # self.ic3 = ImageCanvas(tab3, width=4, height= 4, dpi=100)
+        # self.ic4 = ImageCanvas(tab4, width=4, height= 4, dpi=100)
+        # self.ic5 = ImageCanvas(tab5, width=4, height= 4, dpi=100)
+
+        #self.mpl_toolbar1 = NavigationToolbar(self.ic1, self)
+        #self.mpl_toolbar1.pan('on')
+        #self.mpl_toolbar1.setObjectName('tb1')
+
+        #tab1.layout.addWidget(self.ic1)
+        #tab1.layout.addWidget(self.mpl_toolbar1)
+        #self.tb2 = NavigationToolbar(self.ic2, self)
+        #self.tb2.pan('on')
+        #self.tb2.setObjectName('tb2')
+            
         #imageWidget.layout.addWidget(tabs)
         #imageWidget.layout.addWidget(self.sb)
         
@@ -278,7 +297,7 @@ def main():
     width = screen_resolution.width()
     aw = ApplicationWindow()
     aw.setGeometry(100, 100, width*0.9, width*0.35)
-    progname = 'Elliptical Aperture photometry SED (ElApSED)'
+    progname = 'Elliptical Aperture photometry Spectral Energy Distribution (ElApSED)'
     aw.setWindowTitle("%s" % progname)
     aw.show()
     app.exec_()
