@@ -55,7 +55,7 @@ class ImageCanvas(MplCanvas):
         MplCanvas.__init__(self, *args, **kwargs)
 
     def compute_initial_figure(self, image=None, wcs=None):
-        if image == None:
+        if wcs == None:
             pass
         else:
             self.axes = self.fig.add_subplot(111, projection = wcs)
@@ -252,11 +252,8 @@ class ApplicationWindow(QMainWindow):
         path = './'+'{:d}'.format(source)+'/'
         files = sorted(glob.glob(path+'*.fits'))
         files = np.array(files)
-        print ('files are: ', files)
-
         
-        bands = np.array([os.path.splitext(os.path.basename(f))[0] for f in files])
-        print ('bands are: ', bands)
+        bands = [os.path.splitext(os.path.basename(f))[0] for f in files]
 
         # Reorder bands according to wavelength
         filters = pd.read_csv('filters.csv',  names=['filter','wvl','zp','f0','delta'],skiprows=1,
@@ -264,10 +261,16 @@ class ApplicationWindow(QMainWindow):
                               converters = {'filter': strip}, skipinitialspace=True
         )
 
-        w = np.array([filters.loc[b]['wvl'] for b in bands])
+        w = []
+        newbands = bands.copy()
+        for b in bands:
+            try:
+                w.append(filters.loc[b]['wvl'])
+            except:
+                print (b,' removed because is not in the filter list')
+                newbands.remove(b)
+        bands = np.array(newbands)
         bands = bands[np.argsort(w)].tolist()
-
-        # Here I should check if other images (not included in the filter list )are present and discard them
 
         # Open tabs
         tabi = []
@@ -280,8 +283,8 @@ class ApplicationWindow(QMainWindow):
         # Plot images
         for ima in bands:
             print ('image ', ima)
-            image,wcs = self.readFits('/Users/dfadda/Python/A85/2/'+ima+'.fits')
-            ici[bands.index(ima)].compute_initial_figure(image,wcs)
+            image,wcs = self.readFits(path+ima+'.fits')
+            ici[bands.index(ima)].compute_initial_figure(image=image,wcs=wcs)
 
             
 
