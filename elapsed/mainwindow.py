@@ -69,10 +69,13 @@ class ImageCanvas(MplCanvas):
             self.ax_cmax = self.figure.add_axes([0.1, 0.04, 0.8, 0.01])
             self.ax_cmin.clear()
             self.ax_cmax.clear()
-            vmin0=np.nanmin(image); vmax0=np.nanmax(image)
-            d0 = (vmax0-vmin0)/20.
-            self.s_cmin = Slider(self.ax_cmin, 'low', vmin0-d0, vmax0+d0, valinit=vmin0, facecolor='goldenrod')
-            self.s_cmax = Slider(self.ax_cmax, 'high', vmin0-d0, vmax0+d0, valinit=vmax0, facecolor='goldenrod')
+            #vmin0=np.nanmin(image); vmax0=np.nanmax(image)
+            vmed0=np.nanmedian(image)
+            #d0 = (vmax0-vmin0)/20.
+            d0 = np.nanstd(image)
+            self.s_cmin = Slider(self.ax_cmin, 'low', vmed0-2*d0, vmed0+5*d0, valinit=vmed0-d0, facecolor='goldenrod')
+            self.s_cmax = Slider(self.ax_cmax, 'high', vmed0-2*d0, vmed0+5*d0, valinit=vmed0+4*d0, facecolor='goldenrod')
+            self.image.set_clim([vmed0-d0,vmed0+4*d0])
             self.s_cmin.valtext.set_visible(False)
             self.s_cmax.valtext.set_visible(False)
             self.slider1=self.s_cmin.on_changed(self.updateScale)
@@ -108,85 +111,6 @@ class SedCanvas(MplCanvas):
         pass
 
 
-# Style sheet
-# Background color (FFF7C0 is buttermilk, DCAE1D is honey, F2D388 is butter)
-# Colors from https://designschool.canva.com/blog/website-color-schemes/
-# To work on MAC-OSX for QToolBar, one has to set the border to force the style on the system
-# https://bugreports.qt.io/browse/QTBUG-12717
-# Qt documentation: http://doc.qt.io/qt-5/stylesheet-examples.html
-
-style = """
-        QMainWindow {
-        background-color: QLinearGradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 LemonChiffon, stop: 1 #F2D388);
-        }
-        QMenu {
-        background-color: #D8AB4E;
-        background: '#FFF6BA';
-        color: 'black';
-        }
-        QMenuBar {
-        background-color: QLinearGradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFF6BA, stop:1 #F2D388);
-        background: #F2D388;
-        color: 'black';
-        }
-        QMenuBar::item {
-        background: transparent;
-        spacing: 3px;
-        padding: 1px 4px;
-        border-radius: 4px;
-        }
-        QMenuBar::item:selected { /* when selected using mouse or keyboard */
-        background: #FFF6BA;
-        }
-        QMenuBar::item:pressed {
-        background: #DCAE1D;
-        }
-        QStatusBar {
-        background-color: #FFF6BA;
-        border: 1px solid black;
-        border-radius: 3px;
-        }
-        QToolBar {
-        background-color: transparent;
-        border: 1px transparent;
-        }
-        QToolBar::separator{
-        background-color: transparent;
-        }
-        QToolButton:pressed {
-        background-color: LemonChiffon;
-        border-radius: 3px;
-        }
-        QToolButton:hover {
-        background-color: LemonChiffon;
-        border-radius: 3px;
-        }
-        QToolButton:focused {
-        background-color: LemonChiffon;
-        border-radius: 3px;
-        }
-        QToolButton:checked {
-        background-color: LemonChiffon;
-        border-radius: 3px;
-        }
-        QToolTip {
-        border: 1px solid black;
-        padding: 2px;
-        border-radius: 3px;
-        opacity: 200;
-        background-color: LemonChiffon;
-        }
-        QTabWidget {
-        background: khaki;
-        }
-        QTabWidget::tab-bar{
-        alignment: left;
-        }
-        QTabWidget::pane {
-        background: LemonChiffon;
-        padding: 0px;
-        }
-"""
 
 def strip(text):
     ''' strips whitespaces out of field'''
@@ -204,11 +128,14 @@ class ApplicationWindow(QMainWindow):
     def __init__(self):
         QMainWindow.__init__(self)
         self.setAttribute(Qt.WA_DeleteOnClose)
+
         # Get the path of the package
         path0, file0 = os.path.split(__file__)
 
         # Define style
-        self.setStyleSheet(style)
+        with open(path0+'/yellow.stylesheet',"r") as fh:
+            print ('reading stylesheet')
+            self.setStyleSheet(fh.read())
 
         # Menu
         self.file_menu = self.menuBar().addMenu('&File')
