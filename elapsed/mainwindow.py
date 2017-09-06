@@ -176,11 +176,15 @@ style = """
         opacity: 200;
         background-color: LemonChiffon;
         }
+        QTabWidget {
+        background: khaki;
+        }
         QTabWidget::tab-bar{
         alignment: left;
         }
-        QTabWidget{
-        background-color: transparent;
+        QTabWidget::pane {
+        background: LemonChiffon;
+        padding: 0px;
         }
 """
 
