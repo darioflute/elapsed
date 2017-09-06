@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
 # Essential libraries
-import sys,os
+import sys,os,glob
 import numpy as np
+import pandas as pd
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -13,6 +14,12 @@ rcParams['font.family']='STIXGeneral'
 rcParams['font.size']=13
 rcParams['mathtext.fontset']='stix'
 rcParams['legend.numpoints']=1
+
+from matplotlib.widgets import Slider
+
+# FITS
+from astropy.io import fits
+from astropy.wcs import WCS
 
 
 # Connection with PyQt5
@@ -47,10 +54,39 @@ class ImageCanvas(MplCanvas):
     def __init__(self, *args, **kwargs):
         MplCanvas.__init__(self, *args, **kwargs)
 
-    def compute_initial_figure(self):
-        self.axes1 = self.fig.add_subplot(111)
-        self.axes1.set_xlim([0,1])
-        self.axes1.set_ylim([0,10])
+    def compute_initial_figure(self, image=None, wcs=None):
+        if image == None:
+            pass
+        else:
+            self.axes = self.fig.add_subplot(111, projection = wcs)
+            self.axes.coords[0].set_major_formatter('hh:mm:ss')
+            self.image = self.axes.imshow(image, cmap='gist_heat_r', origin='lower', interpolation='none')
+            # Colorbar
+            cbaxes = self.fig.add_axes([0.9,0.1,0.02,0.8])
+            self.fig.colorbar(self.image, cax=cbaxes)
+            # Sliders to adjust intensity
+            self.ax_cmin = self.figure.add_axes([0.1, 0.01, 0.8, 0.01])
+            self.ax_cmax = self.figure.add_axes([0.1, 0.04, 0.8, 0.01])
+            self.ax_cmin.clear()
+            self.ax_cmax.clear()
+            vmin0=np.nanmin(image); vmax0=np.nanmax(image)
+            d0 = (vmax0-vmin0)/20.
+            self.s_cmin = Slider(self.ax_cmin, 'low', vmin0-d0, vmax0+d0, valinit=vmin0, facecolor='goldenrod')
+            self.s_cmax = Slider(self.ax_cmax, 'high', vmin0-d0, vmax0+d0, valinit=vmax0, facecolor='goldenrod')
+            self.s_cmin.valtext.set_visible(False)
+            self.s_cmax.valtext.set_visible(False)
+            self.slider1=self.s_cmin.on_changed(self.updateScale)
+            self.slider2=self.s_cmax.on_changed(self.updateScale)
+        #self.axes.set_xlim([0,1])
+        #self.axes.set_ylim([0,10])
+
+    def updateScale(self,val):
+        _cmin = self.s_cmin.val
+        _cmax = self.s_cmax.val
+        self.image.set_clim([_cmin, _cmax])
+        self.fig.canvas.draw_idle()
+
+
 
 
 class ProfileCanvas(MplCanvas):
@@ -110,7 +146,7 @@ style = """
         border: 1px solid black;
         border-radius: 3px;
         }
-        QToolBar#tb1, QToolBar#tb2, QToolBar#tb {
+        QToolBar {
         background-color: transparent;
         border: 1px transparent;
         }
@@ -140,12 +176,21 @@ style = """
         opacity: 200;
         background-color: LemonChiffon;
         }
-        QTabBar::tab-bar{
-        alignment: right;
+        QTabWidget::tab-bar{
+        alignment: left;
+        }
+        QTabWidget{
+        background-color: transparent;
         }
 """
 
-    
+def strip(text):
+    ''' strips whitespaces out of field'''
+    try:
+        return text.strip()
+    except AttributeError:
+        return text
+
 
 class ApplicationWindow(QMainWindow):
     '''
@@ -177,8 +222,8 @@ class ApplicationWindow(QMainWindow):
         self.main_widget = QWidget(self)
 
 
-        self.pc = ProfileCanvas(self.main_widget, width=4, height=1.5, dpi=100)
-        self.sc = SedCanvas(self.main_widget, width=4, height=2, dpi=100)
+        self.pc = ProfileCanvas(self.main_widget, width=3, height=1.5, dpi=100)
+        self.sc = SedCanvas(self.main_widget, width=3, height=2, dpi=100)
 
 
         # Status Bar
@@ -190,71 +235,59 @@ class ApplicationWindow(QMainWindow):
         splitter1 = QSplitter(Qt.Horizontal)
         splitter2 = QSplitter(Qt.Vertical)
 
-        # the image
-        #imageWidget = QWidget()
-        #imageWidget.layout = QVBoxLayout()
-
+        # Check the file with centers
+        centers = pd.read_csv('centers.csv',  names=['source','ra','dec'],skiprows=1, header=None)
+        print ('source: ', centers.head())
+        print ('RA: ', centers['ra'])
+        ras = centers['ra'].values
+        print("first RA is: ", ras[0])
+        
         tabs = QTabWidget()
         tabs.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
-        #tabs.layout = QStackedLayout()
-        #tabs.layout.setSpacing(0)
-        #tabs.layout.setContentsMargins(0,0,0,0)        
-        #tabs.resize(450,450)
 
-        # tab1 = QWidget()
-        # tab2 = QWidget()
-        # tab3 = QWidget()
-        # tab4 = QWidget()
-        # tab5 = QWidget()
+        # Check images for the source
+        sources = centers['source'].values
+        source = sources[0]
+
+        path = './'+'{:d}'.format(source)+'/'
+        files = sorted(glob.glob(path+'*.fits'))
+        files = np.array(files)
+        print ('files are: ', files)
+
         
-        # tablist = [tab1,tab2,tab3,tab4,tab5]
-        #iclist  = [self.ic1,self.ic2,self.ic3,self.ic4,self.ic5]
-        bands = ['u','g','r','i','z']
+        bands = np.array([os.path.splitext(os.path.basename(f))[0] for f in files])
+        print ('bands are: ', bands)
 
+        # Reorder bands according to wavelength
+        filters = pd.read_csv('filters.csv',  names=['filter','wvl','zp','f0','delta'],skiprows=1,
+                              header=None, index_col='filter',
+                              converters = {'filter': strip}, skipinitialspace=True
+        )
+
+        w = np.array([filters.loc[b]['wvl'] for b in bands])
+        bands = bands[np.argsort(w)].tolist()
+
+        # Here I should check if other images (not included in the filter list )are present and discard them
+
+        # Open tabs
         tabi = []
         ici = []
         for b in bands:
-            t = QWidget()
-            t.layout = QVBoxLayout()
-            tabs.addTab(t, b)
-            ic = ImageCanvas(t, width=4, height=4, dpi=100)
-            ntb = NavigationToolbar(ic, self)
-            ntb.pan('on')
-            t.layout.addWidget(ic)
-            t.layout.addWidget(ntb)
-            t.setLayout(t.layout)
+            t,ic = self.addImage(b, tabs)
             tabi.append(t)
             ici.append(ic)
             
-        # for t,b in zip(tablist,bands):            
-        #     t.layout = QVBoxLayout()
-        #     tabs.addTab(t,b)
+        # Plot images
+        for ima in bands:
+            print ('image ', ima)
+            image,wcs = self.readFits('/Users/dfadda/Python/A85/2/'+ima+'.fits')
+            ici[bands.index(ima)].compute_initial_figure(image,wcs)
 
-
-        # # Define sub widgets
-        # self.ic1 = ImageCanvas(tab1, width=4, height= 4, dpi=100)
-        # self.ic2 = ImageCanvas(tab2, width=4, height= 4, dpi=100)
-        # self.ic3 = ImageCanvas(tab3, width=4, height= 4, dpi=100)
-        # self.ic4 = ImageCanvas(tab4, width=4, height= 4, dpi=100)
-        # self.ic5 = ImageCanvas(tab5, width=4, height= 4, dpi=100)
+            
 
         #self.mpl_toolbar1 = NavigationToolbar(self.ic1, self)
         #self.mpl_toolbar1.pan('on')
         #self.mpl_toolbar1.setObjectName('tb1')
-
-        #tab1.layout.addWidget(self.ic1)
-        #tab1.layout.addWidget(self.mpl_toolbar1)
-        #self.tb2 = NavigationToolbar(self.ic2, self)
-        #self.tb2.pan('on')
-        #self.tb2.setObjectName('tb2')
-            
-        #imageWidget.layout.addWidget(tabs)
-        #imageWidget.layout.addWidget(self.sb)
-        
-        # imageLayout = QVBoxLayout()
-        # imageWidget = QWidget()
-        # imageWidget.setLayout(imageLayout)
-        # imageLayout.addWidget(self.sb)
 
         sedLayout = QVBoxLayout()
         sedWidget = QWidget()
@@ -281,6 +314,29 @@ class ApplicationWindow(QMainWindow):
 
     def fileQuit(self):
         self.close()
+
+
+    def addImage(self,b, tabs):
+        ''' Add a tab with an image '''
+        t = QWidget()
+        t.layout = QVBoxLayout()
+        tabs.addTab(t, b)
+        ic = ImageCanvas(t, width=4, height=4, dpi=100)
+        ntb = NavigationToolbar(ic, self)
+        ntb.pan('on')
+        t.layout.addWidget(ic)
+        t.layout.addWidget(ntb)
+        t.setLayout(t.layout)
+        return t,ic
+
+    def readFits(self, infile):
+        ''' Read a fits file '''
+        hdl = fits.open(infile)
+        header = hdl[0].header
+        image = hdl[0].data
+        hdl.close()
+        wcs = WCS(header)
+        return image, wcs
        
     def about(self):
         # Get path of the package
@@ -296,8 +352,8 @@ def main():
     screen_resolution = app.desktop().screenGeometry()
     width = screen_resolution.width()
     aw = ApplicationWindow()
-    aw.setGeometry(100, 100, width*0.9, width*0.35)
-    progname = 'Elliptical Aperture photometry Spectral Energy Distribution (ElApSED)'
+    aw.setGeometry(100, 100, width*0.7, width*0.45)
+    progname = 'Elliptical Aperture photometry for Spectral Energy Distributions (ElApSED)'
     aw.setWindowTitle("%s" % progname)
     aw.show()
     app.exec_()
