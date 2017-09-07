@@ -54,13 +54,23 @@ class ImageCanvas(MplCanvas):
     def __init__(self, *args, **kwargs):
         MplCanvas.__init__(self, *args, **kwargs)
 
-    def compute_initial_figure(self, image=None, wcs=None):
+        
+    def compute_initial_figure(self, image=None, wcs=None, center=None):
         if wcs == None:
             pass
         else:
+            self.wcs = wcs
             self.axes = self.fig.add_subplot(111, projection = wcs)
+            #wcs.wcs.print_contents()
+            # This works only if the x-axis is R.A. ?
             self.axes.coords[0].set_major_formatter('hh:mm:ss')
             self.image = self.axes.imshow(image, cmap='gist_heat_r', origin='lower', interpolation='none')
+            self.axes.grid(color='black', ls='dashed')
+            #self.axes.set_xlabel('R.A.')
+            #self.axes.set_ylabel('Dec')
+            # Mark center
+            xc,yc = wcs.wcs_world2pix(center[0],center[1],1)
+            self.axes.scatter(x=xc,y=yc,marker='+',s=400,c='green')
             # Colorbar
             cbaxes = self.fig.add_axes([0.9,0.1,0.02,0.8])
             self.fig.colorbar(self.image, cax=cbaxes)
@@ -69,9 +79,7 @@ class ImageCanvas(MplCanvas):
             self.ax_cmax = self.figure.add_axes([0.1, 0.04, 0.8, 0.01])
             self.ax_cmin.clear()
             self.ax_cmax.clear()
-            #vmin0=np.nanmin(image); vmax0=np.nanmax(image)
             vmed0=np.nanmedian(image)
-            #d0 = (vmax0-vmin0)/20.
             d0 = np.nanstd(image)
             self.s_cmin = Slider(self.ax_cmin, 'low', vmed0-2*d0, vmed0+5*d0, valinit=vmed0-d0, facecolor='goldenrod')
             self.s_cmax = Slider(self.ax_cmax, 'high', vmed0-2*d0, vmed0+5*d0, valinit=vmed0+4*d0, facecolor='goldenrod')
@@ -80,8 +88,6 @@ class ImageCanvas(MplCanvas):
             self.s_cmax.valtext.set_visible(False)
             self.slider1=self.s_cmin.on_changed(self.updateScale)
             self.slider2=self.s_cmax.on_changed(self.updateScale)
-        #self.axes.set_xlim([0,1])
-        #self.axes.set_ylim([0,10])
 
     def updateScale(self,val):
         _cmin = self.s_cmin.val
@@ -170,11 +176,11 @@ class ApplicationWindow(QMainWindow):
         centers = pd.read_csv('centers.csv',  names=['source','ra','dec'],skiprows=1, header=None)
         print ('source: ', centers.head())
         print ('RA: ', centers['ra'])
-        ras = centers['ra'].values
-        print("first RA is: ", ras[0])
+        alphas = centers['ra'].values
+        deltas = centers['dec'].values
         
-        tabs = QTabWidget()
-        tabs.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
+        self.tabs = QTabWidget()
+        self.tabs.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
 
         # Check images for the source
         sources = centers['source'].values
@@ -204,18 +210,18 @@ class ApplicationWindow(QMainWindow):
         bands = bands[np.argsort(w)].tolist()
 
         # Open tabs
-        tabi = []
-        ici = []
+        self.tabi = []
+        self.ici = []
         for b in bands:
-            t,ic = self.addImage(b, tabs)
-            tabi.append(t)
-            ici.append(ic)
+            t,ic = self.addImage(b)
+            self.tabi.append(t)
+            self.ici.append(ic)
             
         # Plot images
         for ima in bands:
             print ('image ', ima)
             image,wcs = self.readFits(path+ima+'.fits')
-            ici[bands.index(ima)].compute_initial_figure(image=image,wcs=wcs)
+            self.ici[bands.index(ima)].compute_initial_figure(image=image,wcs=wcs,center=(alphas[0],deltas[0]))
 
             
 
@@ -238,7 +244,7 @@ class ApplicationWindow(QMainWindow):
         splitter2.addWidget(sedWidget)
         splitter2.addWidget(self.sb)
         
-        splitter1.addWidget(tabs)
+        splitter1.addWidget(self.tabs)
         splitter1.addWidget(splitter2)
 
         mainLayout.addWidget(splitter1)
@@ -246,30 +252,87 @@ class ApplicationWindow(QMainWindow):
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
 
+        
+
     def fileQuit(self):
         self.close()
 
 
-    def addImage(self,b, tabs):
+    def addImage(self,b):
         ''' Add a tab with an image '''
         t = QWidget()
         t.layout = QVBoxLayout()
-        tabs.addTab(t, b)
+        self.tabs.addTab(t, b)
         ic = ImageCanvas(t, width=4, height=4, dpi=100)
-        ntb = NavigationToolbar(ic, self)
-        ntb.pan('on')
+        ic.toolbar = NavigationToolbar(ic, self)
+        ic.toolbar.pan('on')
         t.layout.addWidget(ic)
-        t.layout.addWidget(ntb)
+        t.layout.addWidget(ic.toolbar)
         t.setLayout(t.layout)
+        # connect image
+        ic.mpl_connect('draw_event', self.onDraw)
         return t,ic
 
+    def onDraw(self, event):
+        ''' New limits for all images if zoom is activated '''
+        itab = self.tabs.currentIndex()
+        ic = self.ici[itab]
+        if ic.toolbar._active == 'ZOOM':
+            x = ic.axes.get_xlim()
+            y = ic.axes.get_ylim()
+            ra,dec = ic.wcs.wcs_pix2world(x,y,1)
+            self.sb.showMessage("Resizing figures .... ", 1000)
+            for ima in self.ici:
+                x,y = ima.wcs.wcs_world2pix(ra,dec,1)
+                ima.axes.set_xlim(x)
+                ima.axes.set_ylim(y)
+                ima.fig.canvas.draw_idle()
+            self.sb.showMessage("Figures have been resized ", 1000)
+            ic.toolbar.pan('on')
+
+        
+        
     def readFits(self, infile):
+        import astropy.units as u
+        import math
         ''' Read a fits file '''
         hdl = fits.open(infile)
         header = hdl[0].header
         image = hdl[0].data
         hdl.close()
         wcs = WCS(header)
+
+        if hasattr(wcs.wcs,'cd'):
+            CD11 = wcs.wcs.cd[0,0]
+            CD12 = wcs.wcs.cd[0,1]
+            CD21 = wcs.wcs.cd[1,0]
+            CD22 = wcs.wcs.cd[1,1]
+            if (abs(CD21) > abs(CD22)) and (CD21 >= 0): 
+                North = "Right"
+                positionAngle = 270.*u.deg + math.degrees(math.atan(CD22/CD21))*u.deg
+            elif (abs(CD21) > abs(CD22)) and (CD21 < 0):
+                North = "Left"
+                positionAngle = 90.*u.deg + math.degrees(math.atan(CD22/CD21))*u.deg
+            elif (abs(CD21) < abs(CD22)) and (CD22 >= 0):
+                North = "Up"
+                positionAngle = 0.*u.deg + math.degrees(math.atan(CD21/CD22))*u.deg
+            elif (abs(CD21) < abs(CD22)) and (CD22 < 0):
+                North = "Down"
+                positionAngle = 180.*u.deg + math.degrees(math.atan(CD21/CD22))*u.deg
+            if (abs(CD11) > abs(CD12)) and (CD11 > 0): East = "Right"
+            if (abs(CD11) > abs(CD12)) and (CD11 < 0): East = "Left"
+            if (abs(CD11) < abs(CD12)) and (CD12 > 0): East = "Up"
+            if (abs(CD11) < abs(CD12)) and (CD12 < 0): East = "Down"
+            if North == "Up" and East == "Left": imageFlipped = False
+            if North == "Up" and East == "Right": imageFlipped = True
+            if North == "Down" and East == "Left": imageFlipped = True
+            if North == "Down" and East == "Right": imageFlipped = False
+            if North == "Right" and East == "Up": imageFlipped = False
+            if North == "Right" and East == "Down": imageFlipped = True
+            if North == "Left" and East == "Up": imageFlipped = True
+            if North == "Left" and East == "Down": imageFlipped = False
+            print ('image flipped is ', imageFlipped)
+        
         return image, wcs
        
     def about(self):
