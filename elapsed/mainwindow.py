@@ -5,7 +5,7 @@ import sys,os,glob
 import numpy as np
 import pandas as pd
 import warnings
-warnings.filterwarnings('ignore')
+#warnings.filterwarnings('ignore')
 
 # Matplotlib
 import matplotlib
@@ -59,20 +59,50 @@ class ImageCanvas(MplCanvas):
         if wcs == None:
             pass
         else:
-            self.wcs = wcs
-            self.axes = self.fig.add_subplot(111, projection = wcs)
-            #wcs.wcs.print_contents()
-            # This works only if the x-axis is R.A. ?
+            h1 = wcs.to_header()
+            #if hasattr(wcs.wcs,'cd'):
+            try:
+                pc11=h1["PC1_1"]
+                pc12=h1["PC1_2"]
+                pc21=h1["PC2_1"]
+                pc22=h1["PC2_2"]
+                pc1 = -np.hypot(pc11,pc12)
+                if h1["CRVAL2"] < 0:
+                    pc2 = -np.hypot(pc21,pc22)
+                else:
+                    pc2 = np.hypot(pc21,pc22)
+                h1.update(
+                    pc1_1=pc1,
+                    pc1_2=0.0, 
+                    pc2_1=0.0, 
+                    pc2_2=pc2,
+                    orientat=0.0)
+            except:
+                pass
+            w1 = WCS(h1)
+            self.wcs = w1
+
+            #self.axes = self.fig.add_subplot(111, projection = wcs)
+            #self.image = self.axes.imshow(image, cmap='gist_heat_r',interpolation='none',  origin='lower')
+            self.axes = self.fig.add_axes([0.1,0.1,.8,.8], projection = self.wcs)
+            self.image = self.axes.imshow(image, cmap='gist_heat_r',interpolation='none',transform=self.axes.get_transform(wcs)) # origin='lower'
             self.axes.coords[0].set_major_formatter('hh:mm:ss')
-            self.image = self.axes.imshow(image, cmap='gist_heat_r', origin='lower', interpolation='none')
             self.axes.grid(color='black', ls='dashed')
-            #self.axes.set_xlabel('R.A.')
-            #self.axes.set_ylabel('Dec')
+            self.axes.set_xlabel('R.A.')
+            self.axes.set_ylabel('Dec')
+
+            # Plot with North up (corners are clockwise from left-bottom)
+            corners = self.wcs.calc_footprint()
+            if corners[0,1] < 0:
+                if corners[0,1] > corners[1,1]:
+                    ylim = self.axes.get_ylim()
+                    self.axes.set_ylim([ylim[1],ylim[0]])
+            
             # Mark center
-            xc,yc = wcs.wcs_world2pix(center[0],center[1],1)
+            xc,yc = self.wcs.all_world2pix(center[0],center[1],1)
             self.axes.scatter(x=xc,y=yc,marker='+',s=400,c='green')
             # Colorbar
-            cbaxes = self.fig.add_axes([0.9,0.1,0.02,0.8])
+            cbaxes = self.fig.add_axes([0.9,0.1,0.02,0.85])
             self.fig.colorbar(self.image, cax=cbaxes)
             # Sliders to adjust intensity
             self.ax_cmin = self.figure.add_axes([0.1, 0.01, 0.8, 0.01])
@@ -280,10 +310,10 @@ class ApplicationWindow(QMainWindow):
         if ic.toolbar._active == 'ZOOM':
             x = ic.axes.get_xlim()
             y = ic.axes.get_ylim()
-            ra,dec = ic.wcs.wcs_pix2world(x,y,1)
+            ra,dec = ic.wcs.all_pix2world(x,y,1)
             self.sb.showMessage("Resizing figures .... ", 1000)
             for ima in self.ici:
-                x,y = ima.wcs.wcs_world2pix(ra,dec,1)
+                x,y = ima.wcs.all_world2pix(ra,dec,1)
                 ima.axes.set_xlim(x)
                 ima.axes.set_ylim(y)
                 ima.fig.canvas.draw_idle()
@@ -293,46 +323,20 @@ class ApplicationWindow(QMainWindow):
         
         
     def readFits(self, infile):
-        import astropy.units as u
-        import math
         ''' Read a fits file '''
         hdl = fits.open(infile)
         header = hdl[0].header
         image = hdl[0].data
         hdl.close()
         wcs = WCS(header)
-
-        if hasattr(wcs.wcs,'cd'):
-            CD11 = wcs.wcs.cd[0,0]
-            CD12 = wcs.wcs.cd[0,1]
-            CD21 = wcs.wcs.cd[1,0]
-            CD22 = wcs.wcs.cd[1,1]
-            if (abs(CD21) > abs(CD22)) and (CD21 >= 0): 
-                North = "Right"
-                positionAngle = 270.*u.deg + math.degrees(math.atan(CD22/CD21))*u.deg
-            elif (abs(CD21) > abs(CD22)) and (CD21 < 0):
-                North = "Left"
-                positionAngle = 90.*u.deg + math.degrees(math.atan(CD22/CD21))*u.deg
-            elif (abs(CD21) < abs(CD22)) and (CD22 >= 0):
-                North = "Up"
-                positionAngle = 0.*u.deg + math.degrees(math.atan(CD21/CD22))*u.deg
-            elif (abs(CD21) < abs(CD22)) and (CD22 < 0):
-                North = "Down"
-                positionAngle = 180.*u.deg + math.degrees(math.atan(CD21/CD22))*u.deg
-            if (abs(CD11) > abs(CD12)) and (CD11 > 0): East = "Right"
-            if (abs(CD11) > abs(CD12)) and (CD11 < 0): East = "Left"
-            if (abs(CD11) < abs(CD12)) and (CD12 > 0): East = "Up"
-            if (abs(CD11) < abs(CD12)) and (CD12 < 0): East = "Down"
-            if North == "Up" and East == "Left": imageFlipped = False
-            if North == "Up" and East == "Right": imageFlipped = True
-            if North == "Down" and East == "Left": imageFlipped = True
-            if North == "Down" and East == "Right": imageFlipped = False
-            if North == "Right" and East == "Up": imageFlipped = False
-            if North == "Right" and East == "Down": imageFlipped = True
-            if North == "Left" and East == "Up": imageFlipped = True
-            if North == "Left" and East == "Down": imageFlipped = False
-            print ('image flipped is ', imageFlipped)
         
+        # Center the reference pixel
+        nx, ny = header["naxis1"], header["naxis2"]
+        i0, j0 = (float(nx) + 1.0)/2, (float(ny) + 1.0)/2
+        [ra0, dec0], = wcs.all_pix2world([[i0, j0]], 1)
+        header.update(crpix1=i0, crpix2=j0, crval1=ra0, crval2=dec0)
+        wcs = WCS(header)
+
         return image, wcs
        
     def about(self):
