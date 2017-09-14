@@ -5,7 +5,7 @@ import sys,os,glob
 import numpy as np
 import pandas as pd
 import warnings
-#warnings.filterwarnings('ignore')
+warnings.filterwarnings('ignore')
 
 # Matplotlib
 import matplotlib
@@ -16,11 +16,13 @@ rcParams['mathtext.fontset']='stix'
 rcParams['legend.numpoints']=1
 
 from matplotlib.widgets import Slider
+from matplotlib.patches import Ellipse,Arc
+from tools import DragResizeRotateEllipse
 
 # FITS
 from astropy.io import fits
 from astropy.wcs import WCS
-
+from astropy.wcs.utils import proj_plane_pixel_scales as pixscales
 
 # Connection with PyQt5
 matplotlib.use('Qt5Agg')
@@ -28,9 +30,10 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from PyQt5.QtWidgets import (QWidget, QMainWindow, QMessageBox,QToolBar,QAction,QStatusBar,QSizePolicy,
-                             QHBoxLayout, QVBoxLayout, QStackedLayout, QApplication, QListWidget,QSplitter,QMenu,QTabWidget)
+                             QHBoxLayout, QVBoxLayout, QApplication, QSplitter, QTabWidget)
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal, QObject
+from PyQt5.QtCore import Qt, QThread #, QTimer, pyqtSignal, QObject
+
 
 
 class MplCanvas(FigureCanvas):
@@ -49,14 +52,17 @@ class MplCanvas(FigureCanvas):
     def compute_initial_figure(self):
         pass
 
+    
 class ImageCanvas(MplCanvas):
     """ Canvas to plot an image """
+    
     def __init__(self, *args, **kwargs):
         MplCanvas.__init__(self, *args, **kwargs)
 
-        
-    def compute_initial_figure(self, image=None, wcs=None, center=None):
+            
+    def compute_initial_figure(self, image=None, wcs=None, center=None, title=None):
         if wcs == None:
+            ''' initial definition when images are not yet read '''
             pass
         else:
             h1 = wcs.to_header()
@@ -67,10 +73,12 @@ class ImageCanvas(MplCanvas):
                 pc21=h1["PC2_1"]
                 pc22=h1["PC2_2"]
                 pc1 = -np.hypot(pc11,pc12)
-                if h1["CRVAL2"] < 0:
+                if h1["CRVAL2"] < 0:    # if object in Southern Emisphere
+                    print('crval2 < 0')
                     pc2 = -np.hypot(pc21,pc22)
                 else:
                     pc2 = np.hypot(pc21,pc22)
+                print ('pc2 is ', pc2)
                 h1.update(
                     pc1_1=pc1,
                     pc1_2=0.0, 
@@ -79,31 +87,32 @@ class ImageCanvas(MplCanvas):
                     orientat=0.0)
             except:
                 pass
-            w1 = WCS(h1)
-            self.wcs = w1
+            self.wcsn = WCS(h1)
+            self.wcs = wcs
 
-            #self.axes = self.fig.add_subplot(111, projection = wcs)
-            #self.image = self.axes.imshow(image, cmap='gist_heat_r',interpolation='none',  origin='lower')
-            self.axes = self.fig.add_axes([0.1,0.1,.8,.8], projection = self.wcs)
-            self.image = self.axes.imshow(image, cmap='gist_heat_r',interpolation='none',transform=self.axes.get_transform(wcs)) # origin='lower'
+            self.axes = self.fig.add_axes([0.1,0.1,.8,.8], projection = self.wcsn)
+            self.image = self.axes.imshow(image, cmap='gist_heat_r',interpolation='none',transform=self.axes.get_transform(wcs))
             self.axes.coords[0].set_major_formatter('hh:mm:ss')
             self.axes.grid(color='black', ls='dashed')
             self.axes.set_xlabel('R.A.')
             self.axes.set_ylabel('Dec')
 
             # Plot with North up (corners are clockwise from left-bottom)
-            corners = self.wcs.calc_footprint()
+            corners = self.wcsn.calc_footprint()
+            self.flip = False
             if corners[0,1] < 0:
                 if corners[0,1] > corners[1,1]:
                     ylim = self.axes.get_ylim()
                     self.axes.set_ylim([ylim[1],ylim[0]])
-            
-            # Mark center
-            xc,yc = self.wcs.all_world2pix(center[0],center[1],1)
-            self.axes.scatter(x=xc,y=yc,marker='+',s=400,c='green')
+                    self.flip = True
+
+            # Add title
+            self.fig.suptitle('Source: '+title)
+
             # Colorbar
             cbaxes = self.fig.add_axes([0.9,0.1,0.02,0.85])
             self.fig.colorbar(self.image, cax=cbaxes)
+
             # Sliders to adjust intensity
             self.ax_cmin = self.figure.add_axes([0.1, 0.01, 0.8, 0.01])
             self.ax_cmax = self.figure.add_axes([0.1, 0.04, 0.8, 0.01])
@@ -119,13 +128,47 @@ class ImageCanvas(MplCanvas):
             self.slider1=self.s_cmin.on_changed(self.updateScale)
             self.slider2=self.s_cmax.on_changed(self.updateScale)
 
+            # Mark center
+            xc,yc = self.wcsn.all_world2pix(center[0],center[1],1)
+            self.axes.scatter(x=xc,y=yc,marker='+',s=400,c='green')
+
+            # Add ellipse centered on source
+            pixscale = pixscales(self.wcsn)*3600.
+            if self.flip:
+                theta2= 0
+                theta1 = 100
+            else:
+                theta1=0
+                theta2=100
+
+            self.arcell = self.ArcEll((xc,yc), 5/pixscale[0], 5/pixscale[1], 'Lime', 30)
+
+            for a in self.arcell:
+                self.axes.add_patch(a)
+
+            self.drrEllipse = DragResizeRotateEllipse(self.arcell)
+            self.changed = False
+            
+            # Draw canvas
+            #canvas = self.axes.figure.canvas
+            #canvas.draw()
+
+
     def updateScale(self,val):
         _cmin = self.s_cmin.val
         _cmax = self.s_cmax.val
         self.image.set_clim([_cmin, _cmax])
         self.fig.canvas.draw_idle()
 
+    def ArcEll(self,pos,w,h,color,theta):
 
+        arcell = []
+        arcell.append(Ellipse(pos,w,h,edgecolor=color,facecolor='none'))
+        arcell.append(Arc(pos,w,h, edgecolor=color, facecolor='none',theta1=0 -theta,theta2=0 +theta,lw=4))
+        arcell.append(Arc(pos,w,h, edgecolor=color, facecolor='none',theta1=90 -theta,theta2=90 +theta,lw=4))
+        arcell.append(Arc(pos,w,h, edgecolor=color, facecolor='none',theta1=180 -theta,theta2=180 +theta,lw=4))
+        arcell.append(Arc(pos,w,h, edgecolor=color, facecolor='none',theta1=270 -theta,theta2=270 +theta,lw=4))
+        return arcell
 
 
 class ProfileCanvas(MplCanvas):
@@ -156,6 +199,24 @@ def strip(text):
         return text
 
 
+class AlignImagesThread(QThread):
+    ''' Thread to align images '''
+    
+    def __init__(self, ic, ici, parent=None):
+        super(AlignImagesThread, self).__init__(parent)
+        self.ic = ic
+        self.ici = ici
+        
+    def run(self):
+        x = self.ic.axes.get_xlim()
+        y = self.ic.axes.get_ylim()
+        ra,dec = self.ic.wcsn.all_pix2world(x,y,1)
+        for ima in self.ici:
+            x,y = ima.wcsn.all_world2pix(ra,dec,1)
+            ima.axes.set_xlim(x)
+            ima.axes.set_ylim(y)
+            ima.fig.canvas.draw_idle()
+
 class ApplicationWindow(QMainWindow):
     '''
     Layout and methods of the main window
@@ -170,7 +231,6 @@ class ApplicationWindow(QMainWindow):
 
         # Define style
         with open(path0+'/yellow.stylesheet',"r") as fh:
-            print ('reading stylesheet')
             self.setStyleSheet(fh.read())
 
         # Menu
@@ -188,20 +248,25 @@ class ApplicationWindow(QMainWindow):
         # Define main widget
         self.main_widget = QWidget(self)
 
-
+        # Define main plot canvases
         self.pc = ProfileCanvas(self.main_widget, width=3, height=1.5, dpi=100)
         self.sc = SedCanvas(self.main_widget, width=3, height=2, dpi=100)
-
 
         # Status Bar
         self.sb = QStatusBar()
         self.sb.showMessage("Welcome to ElApSED !", 10000)
-        
-        # Layout
-        mainLayout = QHBoxLayout(self.main_widget)
-        splitter1 = QSplitter(Qt.Horizontal)
-        splitter2 = QSplitter(Qt.Vertical)
 
+        # Actions
+        alignAction = self.createAction(path0+'/icons/align.png','Align images','Ctrl+A',self.alignImages)
+        
+        # Toolbar
+        self.tb = QToolBar()
+        self.tb.setMovable(True)
+        self.tb.setObjectName('toolbar')
+        self.tb.addAction(alignAction)
+        
+        # Tabs with images
+        
         # Check the file with centers
         centers = pd.read_csv('centers.csv',  names=['source','ra','dec'],skiprows=1, header=None)
         print ('source: ', centers.head())
@@ -211,18 +276,25 @@ class ApplicationWindow(QMainWindow):
         
         self.tabs = QTabWidget()
         self.tabs.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
+        self.tabs.currentChanged.connect(self.onChange)  # things to do when changing tab
 
-        # Check images for the source
+        # Check images for the source (this will be put in a separate list later)
         sources = centers['source'].values
         source = sources[0]
 
-        path = './'+'{:d}'.format(source)+'/'
+        try:
+            source = '{:d}'.format(source)
+        except:
+            source = strip(source)
+            
+        #path = './'+'{:d}'.format(source)+'/'
+        path = './'+source+'/'
         files = sorted(glob.glob(path+'*.fits'))
         files = np.array(files)
         
         bands = [os.path.splitext(os.path.basename(f))[0] for f in files]
 
-        # Reorder bands according to wavelength
+        # Reorder bands according to their wavelengths
         filters = pd.read_csv('filters.csv',  names=['filter','wvl','zp','f0','delta'],skiprows=1,
                               header=None, index_col='filter',
                               converters = {'filter': strip}, skipinitialspace=True
@@ -246,18 +318,23 @@ class ApplicationWindow(QMainWindow):
             t,ic = self.addImage(b)
             self.tabi.append(t)
             self.ici.append(ic)
+
+        # Initialize central ellipse
             
         # Plot images
         for ima in bands:
             print ('image ', ima)
             image,wcs = self.readFits(path+ima+'.fits')
-            self.ici[bands.index(ima)].compute_initial_figure(image=image,wcs=wcs,center=(alphas[0],deltas[0]))
+            ic = self.ici[bands.index(ima)]
+            ic.compute_initial_figure(image=image,wcs=wcs,center=(alphas[0],deltas[0]),title=source)
+            # Callback to propagate axes limit changes among images
+            ic.cid = ic.axes.callbacks.connect('xlim_changed' and 'ylim_changed', self.zoomAll)
 
-            
 
-        #self.mpl_toolbar1 = NavigationToolbar(self.ic1, self)
-        #self.mpl_toolbar1.pan('on')
-        #self.mpl_toolbar1.setObjectName('tb1')
+        # Layout
+        mainLayout = QHBoxLayout(self.main_widget)
+        splitter1 = QSplitter(Qt.Horizontal)
+        splitter2 = QSplitter(Qt.Vertical)
 
         sedLayout = QVBoxLayout()
         sedWidget = QWidget()
@@ -270,9 +347,16 @@ class ApplicationWindow(QMainWindow):
         profileLayout.addWidget(self.pc)
 
         
+        plotLayout = QVBoxLayout()
+        plotWidget = QWidget()
+        plotWidget.setLayout(plotLayout)
+        plotLayout.addWidget(sedWidget)
+        plotLayout.addWidget(self.tb)
+        plotLayout.addWidget(self.sb)
+        
+        
         splitter2.addWidget(profileWidget)
-        splitter2.addWidget(sedWidget)
-        splitter2.addWidget(self.sb)
+        splitter2.addWidget(plotWidget)
         
         splitter1.addWidget(self.tabs)
         splitter1.addWidget(splitter2)
@@ -283,11 +367,26 @@ class ApplicationWindow(QMainWindow):
         self.setCentralWidget(self.main_widget)
 
         
-
+    def onChange(self, itab):
+        ''' When tab changes check if latest update of ellipse are implemented '''
+        #print("current index is ", itab)
+        if itab < len(self.ici):
+            ima = self.ici[itab]
+            if ima.changed:
+                canvas = ima.arcell[0].figure.canvas
+                canvas.draw_idle()
+                ima.changed = False
+        
     def fileQuit(self):
         self.close()
 
+    def createAction(self,icon,text,shortcut,action):
+        act = QAction(QIcon(icon),text, self)
+        act.setShortcut(shortcut)
+        act.triggered.connect(action)
+        return act
 
+        
     def addImage(self,b):
         ''' Add a tab with an image '''
         t = QWidget()
@@ -295,32 +394,116 @@ class ApplicationWindow(QMainWindow):
         self.tabs.addTab(t, b)
         ic = ImageCanvas(t, width=4, height=4, dpi=100)
         ic.toolbar = NavigationToolbar(ic, self)
-        ic.toolbar.pan('on')
+        #ic.toolbar.pan('on')
         t.layout.addWidget(ic)
         t.layout.addWidget(ic.toolbar)
         t.setLayout(t.layout)
-        # connect image
-        ic.mpl_connect('draw_event', self.onDraw)
+        # connect image to draw events
+        ic.mpl_connect('button_release_event', self.onDraw)
+        ic.mpl_connect('scroll_event',self.onWheel)
         return t,ic
 
     def onDraw(self, event):
-        ''' New limits for all images if zoom is activated '''
+        ''' propagate ellipse changes to other figures '''
+        itab = self.tabs.currentIndex()
+        ic = self.ici[itab]
+        if ic.drrEllipse.changed:
+            ic.drrEllipse.changed=False
+            x,y = ic.arcell[0].center
+            ra,dec = ic.wcsn.all_pix2world(x,y,1)
+            delta = pixscales(ic.wcsn)
+            w = ic.arcell[0].width*delta[0] # assuming pixels are square
+            h = ic.arcell[0].height*delta[0]
+            a = ic.arcell[0].angle
+            if ic.flip:
+                a = -a
+            ici = self.ici.copy()
+            ici.remove(ic)
+            for ima in ici:
+                x,y = ima.wcsn.all_world2pix(ra,dec,1)
+                delta = pixscales(ima.wcsn)
+                w_ = w/delta[0]
+                h_ = h/delta[0]
+                if ima.flip:
+                    a_ = -a
+                else:
+                    a_ = a
+                for arc in ima.arcell:
+                    arc.width = w_
+                    arc.height= h_
+                    arc.angle = a_
+                    arc.center = (x,y)
+                ima.changed = True # To redraw next time tab is open
+
+    def zoomAll(self, event):
+        ''' propagate limit changes to all images '''
+        itab = self.tabs.currentIndex()
+        ic = self.ici[itab]
+        if ic.axes == event: # only consider axes on screen (not other tabs)
+            if ic.toolbar._active == 'ZOOM':
+                ic.toolbar.zoom()  # turn off zoom
+            x = ic.axes.get_xlim()
+            y = ic.axes.get_ylim()
+            #print (x,y)
+            ra,dec = ic.wcsn.all_pix2world(x,y,1)
+            self.sb.showMessage("Resizing figures .... ", 1000)
+            ici = self.ici.copy()
+            ici.remove(ic)
+            #print(ra,dec)
+            for ima in ici:
+                x,y = ima.wcsn.all_world2pix(ra,dec,1)
+                ima.axes.set_xlim(x)
+                ima.axes.set_ylim(y)
+                ima.changed = True
+
+    def onWheel(self,event):
+        ''' enable zoom with mouse wheel and propagate changes to other tabs '''
+        eb = event.button
+        itab = self.tabs.currentIndex()
+        ic = self.ici[itab]
+
+        curr_xlim = ic.axes.get_xlim()
+        curr_ylim = ic.axes.get_ylim()
+        curr_x0 = (curr_xlim[0]+curr_xlim[1])*0.5
+        curr_y0 = (curr_ylim[0]+curr_ylim[1])*0.5
+        if eb == 'up':
+            factor=0.9
+        elif eb == 'down':
+            factor=1.1
+        new_width = (curr_xlim[1]-curr_xlim[0])*factor*0.5
+        new_height= (curr_ylim[1]-curr_ylim[0])*factor*0.5
+        x = [curr_x0-new_width,curr_x0+new_width]
+        y = [curr_y0-new_height,curr_y0+new_height]
+        ic.axes.set_xlim(x)
+        ic.axes.set_ylim(y)
+        ic.fig.canvas.draw_idle()
+        ici = self.ici.copy()
+        ici.remove(ic)
+        ra,dec = ic.wcsn.all_pix2world(x,y,1)
+        for ima in ici:
+            x,y = ima.wcsn.all_world2pix(ra,dec,1)
+            ima.axes.set_xlim(x)
+            ima.axes.set_ylim(y)
+            ima.changed = True
+
+            
+    def alignImages(self, event):
+        ''' Align all images using the same RA-Dec limits as current image '''
+
         itab = self.tabs.currentIndex()
         ic = self.ici[itab]
         if ic.toolbar._active == 'ZOOM':
-            x = ic.axes.get_xlim()
-            y = ic.axes.get_ylim()
-            ra,dec = ic.wcs.all_pix2world(x,y,1)
-            self.sb.showMessage("Resizing figures .... ", 1000)
-            for ima in self.ici:
-                x,y = ima.wcs.all_world2pix(ra,dec,1)
-                ima.axes.set_xlim(x)
-                ima.axes.set_ylim(y)
-                ima.fig.canvas.draw_idle()
-            self.sb.showMessage("Figures have been resized ", 1000)
-            ic.toolbar.pan('on')
-
-        
+            ic.toolbar.zoom() # turn off zoom
+        ici = self.ici.copy()
+        ici.remove(ic)
+        x = ic.axes.get_xlim()
+        y = ic.axes.get_ylim()
+        ra,dec = ic.wcsn.all_pix2world(x,y,1)
+        for ima in self.ici:
+            x,y = ima.wcsn.all_world2pix(ra,dec,1)
+            ima.axes.set_xlim(x)
+            ima.axes.set_ylim(y)
+            ima.changed = True
         
     def readFits(self, infile):
         ''' Read a fits file '''
