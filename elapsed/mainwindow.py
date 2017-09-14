@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import warnings
 warnings.filterwarnings('ignore')
+import time
 
 # Matplotlib
 import matplotlib
@@ -32,7 +33,7 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 from PyQt5.QtWidgets import (QWidget, QMainWindow, QMessageBox,QToolBar,QAction,QStatusBar,QSizePolicy,
                              QHBoxLayout, QVBoxLayout, QApplication, QSplitter, QTabWidget)
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import Qt, QThread #, QTimer, pyqtSignal, QObject
+from PyQt5.QtCore import Qt, QThread, QTimer#, pyqtSignal, QObject
 
 
 
@@ -148,6 +149,7 @@ class ImageCanvas(MplCanvas):
 
             self.drrEllipse = DragResizeRotateEllipse(self.arcell)
             self.changed = False
+
             
             # Draw canvas
             #canvas = self.axes.figure.canvas
@@ -258,12 +260,15 @@ class ApplicationWindow(QMainWindow):
 
         # Actions
         alignAction = self.createAction(path0+'/icons/align.png','Align images','Ctrl+A',self.alignImages)
+        self.blink = 'off'
+        blinkAction = self.createAction(path0+'/icons/blink.png','Blink between 2 images','Ctrl+B',self.blinkImages)        
         
         # Toolbar
         self.tb = QToolBar()
         self.tb.setMovable(True)
         self.tb.setObjectName('toolbar')
         self.tb.addAction(alignAction)
+        self.tb.addAction(blinkAction)
         
         # Tabs with images
         
@@ -366,6 +371,10 @@ class ApplicationWindow(QMainWindow):
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
 
+        # Timer for periodical events
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.blinkTab)
+
         
     def onChange(self, itab):
         ''' When tab changes check if latest update of ellipse are implemented '''
@@ -376,7 +385,31 @@ class ApplicationWindow(QMainWindow):
                 canvas = ima.arcell[0].figure.canvas
                 canvas.draw_idle()
                 ima.changed = False
+            if self.blink == 'select':
+                # Select 2nd tab and start blinking until blink status changes ...
+                self.btab[1] = itab
+                self.blink = 'on'
+                self.timer.start(1000)
+
+    def blinkTab(self):
+        ''' keep switching between two tabs until blink changes state '''
+        itab = self.tabs.currentIndex()
+        if itab == self.btab[0]:
+            i = 1
+        else:
+            i = 0
+        self.tabs.setCurrentIndex(self.btab[i])
         
+    def blinkImages(self, event):
+        ''' Blink between two images in different tabs or stop blinking'''
+        if self.blink == 'off':
+            self.btab = [self.tabs.currentIndex(),0]
+            self.sb.showMessage("Select another tab to blink / click again to stop blinking", 2000)
+            self.blink = 'select'
+        else:
+            self.blink = 'off'
+            self.timer.stop()
+                        
     def fileQuit(self):
         self.close()
 
@@ -504,7 +537,7 @@ class ApplicationWindow(QMainWindow):
             ima.axes.set_xlim(x)
             ima.axes.set_ylim(y)
             ima.changed = True
-        
+
     def readFits(self, infile):
         ''' Read a fits file '''
         hdl = fits.open(infile)
