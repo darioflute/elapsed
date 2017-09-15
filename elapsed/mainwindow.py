@@ -190,7 +190,7 @@ class ImageHistoCanvas(MplCanvas):
     mySignal = pyqtSignal(str)
         
     def compute_initial_figure(self, image=None,xmin=None,xmax=None):
-        if image == None:
+        if image is None:
             ''' initial definition when images are not yet read '''
             pass
         else:
