@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import warnings
 warnings.filterwarnings('ignore')
-import time
+#import time
 
 # Matplotlib
 import matplotlib
@@ -17,7 +17,8 @@ rcParams['font.size']=13
 rcParams['mathtext.fontset']='stix'
 rcParams['legend.numpoints']=1
 
-from matplotlib.widgets import Slider, SpanSelector
+#from matplotlib.widgets import Slider 
+from matplotlib.widgets import SpanSelector
 from matplotlib.patches import Ellipse,Arc
 from tools import DragResizeRotateEllipse
 
@@ -101,7 +102,7 @@ class ImageCanvas(MplCanvas):
             self.wcs = wcs
 
             self.axes = self.fig.add_axes([0.1,0.1,.8,.8], projection = self.wcsn)
-            self.image = self.axes.imshow(image, cmap='gist_heat_r',interpolation='none',transform=self.axes.get_transform(wcs))
+            self.image = self.axes.imshow(image, cmap='gist_heat_r',interpolation='none',transform=self.axes.get_transform(self.wcs))
             self.axes.coords[0].set_major_formatter('hh:mm:ss')
             self.axes.grid(color='black', ls='dashed')
             self.axes.set_xlabel('R.A.')
@@ -144,19 +145,20 @@ class ImageCanvas(MplCanvas):
 
             # Add ellipse centered on source
             pixscale = pixscales(self.wcsn)*3600.
-            if self.flip:
-                theta2= 0
-                theta1 = 100
-            else:
-                theta1=0
-                theta2=100
+            #if self.flip:
+            #    theta2= 0
+            #    theta1 = 100
+            #else:
+            #    theta1=0
+            #    theta2=100
 
+
+            # Ellipse
             self.arcell = self.ArcEll((xc,yc), 5/pixscale[0], 5/pixscale[1], 'Lime', 30)
-
             for a in self.arcell:
                 self.axes.add_patch(a)
+                self.drrEllipse = DragResizeRotateEllipse(self.arcell)
 
-            self.drrEllipse = DragResizeRotateEllipse(self.arcell)
             self.changed = False
 
             
@@ -234,6 +236,7 @@ class ImageHistoCanvas(MplCanvas):
         self.mySignal.emit('limits changed')
         self.shade = self.axes.axvspan(self.limits[0],self.limits[1],facecolor='Lavender',alpha=0.5,linewidth=0)
         self.fig.canvas.draw_idle()
+
     
 class ProfileCanvas(MplCanvas):
     """ Canvas to plot the growth profile """
@@ -394,15 +397,16 @@ class ApplicationWindow(QMainWindow):
             
         # Plot images
         for ima in bands:
-            print ('image ', ima)
-            image,wcs = self.readFits(path+ima+'.fits')
-            ic = self.ici[bands.index(ima)]
-            ic.compute_initial_figure(image=image,wcs=wcs,center=(alphas[0],deltas[0]),title=source)
-            # Callback to propagate axes limit changes among images
-            ic.cid = ic.axes.callbacks.connect('xlim_changed' and 'ylim_changed', self.zoomAll)
-            ih = self.ihi[bands.index(ima)]
-            clim = ic.image.get_clim()
-            ih.compute_initial_figure(image=image,xmin=clim[0],xmax=clim[1])
+             print ('image ', ima)
+             image,wcs = self.readFits(path+ima+'.fits')
+             ic = self.ici[bands.index(ima)]
+             ic.compute_initial_figure(image=image,wcs=wcs,center=(alphas[0],deltas[0]),title=source)
+             # Callback to propagate axes limit changes among images
+             ic.cid = ic.axes.callbacks.connect('xlim_changed' and 'ylim_changed', self.zoomAll)
+             ih = self.ihi[bands.index(ima)]
+             clim = ic.image.get_clim()
+             ih.compute_initial_figure(image=image,xmin=clim[0],xmax=clim[1])
+            
 
         # Layout
         mainLayout = QHBoxLayout(self.main_widget)
@@ -442,7 +446,6 @@ class ApplicationWindow(QMainWindow):
         # Timer for periodical events
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.blinkTab)
-
 
     def changeVisibility(self):
         itab = self.tabs.currentIndex()

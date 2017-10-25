@@ -48,14 +48,12 @@ class DragResizeRotateEllipse:
         self.changed = True
 
     def on_draw(self, event):
-
-        #  capture the background
+        ''' Drawing the ellipse '''
+        # first capture the background
         self.background = self.canvas.copy_from_bbox(self.axes.bbox)
-        # now redraw just the ellipse
+        # then draw the ellipse
         for arc in self.arcell:
             self.axes.draw_artist(arc)
-        # and blit just the redrawn area
-        self.canvas.blit(self.axes.bbox)
 
     def on_motion(self, event):
         '''on motion it will act on the ellipse if the mouse is over it'''
@@ -69,12 +67,15 @@ class DragResizeRotateEllipse:
         self.update_ellipse()
 
         # restore the background region
-        self.canvas.restore_region(self.background)
         # redraw just the current ellipse
+        self.canvas.restore_region(self.background)
         for arc in self.arcell:
             self.axes.draw_artist(arc)
         # blit just the redrawn area
-        self.canvas.blit(self.axes.bbox)
+        #self.canvas.blit(self.axes.bbox)
+        self.canvas.update()
+        self.canvas.flush_events()
+
         
     def on_release(self, event):
         '''on release it resets the press data'''
@@ -105,6 +106,7 @@ class DragResizeRotateEllipse:
 
         # lock into a mode
         if self.lock == "pressed":
+            print('Pressed !')
             rnorm = np.sqrt(xnorm*xnorm+ynorm*ynorm)
             if rnorm > bt:
                 anorm = np.arctan2(ynorm,xnorm)*180./np.pi
@@ -127,12 +129,14 @@ class DragResizeRotateEllipse:
                 self.lock = "move"
                 
         elif self.lock == "move":
+            print('Move !!!')
             xn = x0+dx; yn =y0+dy
             if xn < 0: xn = x0
             if yn < 0: yn = y0
             for arc in self.arcell:
                 arc.center = (xn,yn)
         elif self.lock == "resizerotate":
+            print('Resize rotate !!!')
             dtheta = np.arctan2(ypress+dy-y0,xpress+dx-x0)-np.arctan2(ypress-y0,xpress-x0)
             dtheta *= 180./np.pi
             theta_ = theta0+dtheta
