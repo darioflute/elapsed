@@ -292,6 +292,13 @@ class ApplicationWindow(QMainWindow):
     def __init__(self):
         QMainWindow.__init__(self)
         self.setAttribute(Qt.WA_DeleteOnClose)
+        
+        self.left = 10
+        self.top = 10
+        self.width = 640
+        self.height = 480
+        
+        self.setGeometry(self.left, self.top, self.width, self.height)
 
         # Get the path of the package
         path0, file0 = os.path.split(__file__)
@@ -316,8 +323,8 @@ class ApplicationWindow(QMainWindow):
         self.main_widget = QWidget(self)
 
         # Define main plot canvases
-        self.pc = ProfileCanvas(self.main_widget, width=9, height=4, dpi=100)
-        self.sc = SedCanvas(self.main_widget, width=9, height=6, dpi=100)
+        self.pc = ProfileCanvas(self.main_widget, width=4.5, height=2, dpi=100)
+        self.sc = SedCanvas(self.main_widget, width=4.5, height=3, dpi=100)
 
         # Status Bar
         self.sb = QStatusBar()
@@ -502,8 +509,8 @@ class ApplicationWindow(QMainWindow):
         t = QWidget()
         t.layout = QVBoxLayout()
         self.tabs.addTab(t, b)
-        ic = ImageCanvas(t, width=11, height=10.5, dpi=100)
-        ih = ImageHistoCanvas(t, width=11, height=0.5, dpi=100)
+        ic = ImageCanvas(t, width=5.5, height=5.25, dpi=100)
+        ih = ImageHistoCanvas(t, width=5.5, height=0.25, dpi=100)
         ih.mySignal.connect(self.onChangeIntensity)
         #ih.setVisible(False)
         ic.toolbar = NavigationToolbar(ic, self)
@@ -660,7 +667,7 @@ def main():
     screen_resolution = app.desktop().screenGeometry()
     width = screen_resolution.width()
     aw = ApplicationWindow()
-    aw.setGeometry(100, 100, width*0.9, width*0.5)
+    aw.setGeometry(width*0.025, 0, width*0.95, width*0.5)
     progname = 'Elliptical Aperture photometry for Spectral Energy Distributions (ElApSED)'
     aw.setWindowTitle("%s" % progname)
     aw.show()
