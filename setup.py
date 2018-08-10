@@ -10,12 +10,12 @@ config = {
     'author': 'Dario Fadda',
     'author email': 'darioflute@gmail.com',
     'url': 'https://github.com/darioflute/elapsed.git',
-    'download_url': 'https://github.com/dannaxue/elapsed',
+    'download_url': 'https://github.com/darioflute/elapsed',
     'license': 'MIT',
     'packages': ['elapsed'],
     'scripts': ['bin/elapsed'],
     'include_package_data': True,
-    'package_data': {'sofia': ['icons/*.png', 'icons/*.gif', 'yellow.stylesheet', 'tools.py', 'copyright.txt']}
+    'package_data': {'sofia': ['icons/*.png', 'icons/*.gif', 'yellow.stylesheet', 'copyright.txt']}
 }
 
 setup(**config)
