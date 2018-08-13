@@ -106,7 +106,6 @@ class DragResizeRotateEllipse:
 
         # lock into a mode
         if self.lock == "pressed":
-            print('Pressed !')
             rnorm = np.sqrt(xnorm*xnorm+ynorm*ynorm)
             if rnorm > bt:
                 anorm = np.arctan2(ynorm,xnorm)*180./np.pi
@@ -129,14 +128,12 @@ class DragResizeRotateEllipse:
                 self.lock = "move"
                 
         elif self.lock == "move":
-            print('Move !!!')
             xn = x0+dx; yn =y0+dy
             if xn < 0: xn = x0
             if yn < 0: yn = y0
             for arc in self.arcell:
                 arc.center = (xn,yn)
         elif self.lock == "resizerotate":
-            print('Resize rotate !!!')
             dtheta = np.arctan2(ypress+dy-y0,xpress+dx-x0)-np.arctan2(ypress-y0,xpress-x0)
             dtheta *= 180./np.pi
             theta_ = theta0+dtheta
@@ -157,11 +154,11 @@ class DragResizeRotateEllipse:
                 h_ = h0
             elif self.spot == 2:
                 #print('arc2')
-                h_ = h0+2*dy_  if (h0+2*dx_) > 0 else h0
+                h_ = h0+2*dy_  if (h0+2*dy_) > 0 else h0
                 w_ = w0
             elif self.spot == 4:
                 #print('arc4')
-                h_ = h0-2*dy_  if (h0-2*dx_) > 0 else h0
+                h_ = h0-2*dy_  if (h0-2*dy_) > 0 else h0
                 w_ = w0
             else:
                 self.lock = "released"

@@ -58,7 +58,7 @@ class MplCanvas(FigureCanvas):
         return QSize(w, h)
 
     def minimumSizeHint(self):
-        return QSize(5,5)
+        return QSize(1,1)
     
     def compute_initial_figure(self):
         pass
@@ -323,7 +323,7 @@ class ApplicationWindow(QMainWindow):
         self.main_widget = QWidget(self)
 
         # Define main plot canvases
-        self.pc = ProfileCanvas(self.main_widget, width=4.5, height=2, dpi=100)
+        self.pc = ProfileCanvas(self.main_widget, width=4.5, height=1, dpi=100)
         self.sc = SedCanvas(self.main_widget, width=4.5, height=3, dpi=100)
 
         # Status Bar
@@ -509,8 +509,8 @@ class ApplicationWindow(QMainWindow):
         t = QWidget()
         t.layout = QVBoxLayout()
         self.tabs.addTab(t, b)
-        ic = ImageCanvas(t, width=5.5, height=5.25, dpi=100)
-        ih = ImageHistoCanvas(t, width=5.5, height=0.25, dpi=100)
+        ic = ImageCanvas(t, width=6, height=5.5, dpi=100)
+        ih = ImageHistoCanvas(t, width=6, height=0.25, dpi=100)
         ih.mySignal.connect(self.onChangeIntensity)
         #ih.setVisible(False)
         ic.toolbar = NavigationToolbar(ic, self)
