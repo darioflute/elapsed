@@ -234,5 +234,39 @@ class SedCanvas(MplCanvas):
     def compute_initial_figure(self):
         pass
 
+from PyQt5.QtWidgets import QDialog, QLabel, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout
+import os
+from PyQt5.QtGui import QIcon
 
+class sourceDialog(QDialog):
 
+    dirSignal = pyqtSignal(str)
+    
+    def __init__(self,stlist,  currentST, parent=None):
+        super().__init__()
+        self.currentRow = currentST
+        path0, file0 = os.path.split(__file__)
+        self.setWindowTitle('Title')
+        layout = QVBoxLayout()
+       
+        label = QLabel("Source Files")        
+        self.slist = QListWidget(self)
+        self.slist.setSizePolicy(QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding))
+        self.slist.setMaximumSize(QSize(160,150))
+        for st in stlist:
+            QListWidgetItem(QIcon(path0+"/icons/"+st+"_.png"),st,self.slist)
+        # n = stlist.index(currentST)
+        self.slist.setCurrentRow(self.currentRow)
+        
+        # Button with OK to close dialog
+        b2 = QPushButton("OK",self)
+        b2.clicked.connect(self.end)
+
+        # Layout
+        layout.addWidget(label)
+        layout.addWidget(self.slist)
+        layout.addWidget(b2)
+        self.setLayout(layout)
+
+    def end(self):
+        self.close()

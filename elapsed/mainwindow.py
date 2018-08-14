@@ -30,7 +30,7 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QThread, QTimer#, QObject
 
 from elapsed.canvas import ImageCanvas, ImageHistoCanvas, ProfileCanvas, SedCanvas
-
+from elapsed.canvas import sourceDialog
 
 def strip(text):
     ''' strips whitespaces out of field'''
@@ -93,20 +93,20 @@ class ApplicationWindow(QMainWindow):
         # Status Bar
         self.sb = QStatusBar()
         self.sb.showMessage("Welcome to ElApSED !", 10000)
-        
-        self.createToolbar()
-        
+                
         # Tabs with images
         self.readCentersFilters()
         # Check the file with centers
+        self.nSource = 0
         
+        self.createToolbar()
+
         self.tabs = QTabWidget()
         self.tabs.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
         self.tabs.currentChanged.connect(self.onChange)  # things to do when changing tab
 
         # Check images for the source (this will be put in a separate list later)
         # Select default source number for start
-        self.nSource = 0
         self.createTabs()
         
         # Layout
@@ -167,7 +167,14 @@ class ApplicationWindow(QMainWindow):
         self.blink = 'off'
         blinkAction = self.createAction(self.path0+'/icons/blink.png','Blink between 2 images','Ctrl+B',self.blinkImages)        
         levelsAction = self.createAction(self.path0+'/icons/levels.png','Adjust image levels','Ctrl+L',self.changeVisibility)        
+        sourceAction = self.createAction(self.path0 + '/icons/openfile.png', 'Select a source file', 'Ctrl+S', self.updateSource)
+        sources = self.centers['source'].values
+        self.sourceList = sources
+        # import this
+        self.selectSource = sourceDialog(self.sourceList, self.nSource)
         
+        # Commented out to prevent 'instantaneous' changing of images. Too laggy.
+        # self.selectSource.slist.currentRowChanged.connect(self.updateSource)
         
         # Toolbar
         self.tb = QToolBar()
@@ -176,7 +183,13 @@ class ApplicationWindow(QMainWindow):
         self.tb.addAction(alignAction)
         self.tb.addAction(blinkAction)
         self.tb.addAction(levelsAction)
-        
+        self.tb.addAction(sourceAction)
+     
+    def updateSource(self, event):
+        sourceDialog(self.sourceList, self.nSource)
+        self.selectSource.exec_()
+        self.createTabs()
+
     def readCentersFilters(self):
         self.centers = pd.read_csv('centers.csv',  names=['source','ra','dec'],skiprows=1, header=None)
         self.filters = pd.read_csv('filters.csv',  names=['filter','wvl','zp','f0','delta'],skiprows=1,
@@ -186,12 +199,8 @@ class ApplicationWindow(QMainWindow):
     
     def createTabs(self):
         
-        # remove any tabs that already exist
-        try:
-            for itab in range(len(self.tabi)):
-                self.removeTab(itab)
-        except:
-            pass
+        # removes any tabs that already exist from display; does not delete them.
+        self.tabs.clear()
         
         sources = self.centers['source'].values
         source = sources[self.nSource]
