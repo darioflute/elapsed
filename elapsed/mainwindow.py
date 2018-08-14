@@ -167,7 +167,7 @@ class ApplicationWindow(QMainWindow):
         self.blink = 'off'
         blinkAction = self.createAction(self.path0+'/icons/blink.png','Blink between 2 images','Ctrl+B',self.blinkImages)        
         levelsAction = self.createAction(self.path0+'/icons/levels.png','Adjust image levels','Ctrl+L',self.changeVisibility)        
-        sourceAction = self.createAction(self.path0 + '/icons/importimage.png', 'Select a source file', 'Ctrl+S', self.updateSource)
+        sourceAction = self.createAction(self.path0 + '/icons/importimage.png', 'Open Source', 'None', self.updateSource)
         sources = self.centers['source'].values
         self.sourceList = sources
         # import this
@@ -184,7 +184,8 @@ class ApplicationWindow(QMainWindow):
         self.tb.addAction(blinkAction)
         self.tb.addAction(levelsAction)
         self.tb.addAction(sourceAction)
-     
+        self.file_menu.addAction(sourceAction)
+        
     def updateSource(self, event):
         sourceDialog(self.sourceList, self.nSource)
         self.selectSource.exec_()
