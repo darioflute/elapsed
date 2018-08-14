@@ -167,7 +167,7 @@ class ApplicationWindow(QMainWindow):
         self.blink = 'off'
         blinkAction = self.createAction(self.path0+'/icons/blink.png','Blink between 2 images','Ctrl+B',self.blinkImages)        
         levelsAction = self.createAction(self.path0+'/icons/levels.png','Adjust image levels','Ctrl+L',self.changeVisibility)        
-        sourceAction = self.createAction(self.path0 + '/icons/openfile.png', 'Select a source file', 'Ctrl+S', self.updateSource)
+        sourceAction = self.createAction(self.path0 + '/icons/importimage.png', 'Select a source file', 'Ctrl+S', self.updateSource)
         sources = self.centers['source'].values
         self.sourceList = sources
         # import this
@@ -188,7 +188,10 @@ class ApplicationWindow(QMainWindow):
     def updateSource(self, event):
         sourceDialog(self.sourceList, self.nSource)
         self.selectSource.exec_()
-        self.createTabs()
+        if (self.selectSource.launchTabs == True) :
+            self.createTabs()
+        else :
+            pass
 
     def readCentersFilters(self):
         self.centers = pd.read_csv('centers.csv',  names=['source','ra','dec'],skiprows=1, header=None)

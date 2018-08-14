@@ -248,6 +248,7 @@ class sourceDialog(QDialog):
         path0, file0 = os.path.split(__file__)
         self.setWindowTitle('Title')
         layout = QVBoxLayout()
+        self.launchTabs = False
        
         label = QLabel("Source Files")        
         self.slist = QListWidget(self)
@@ -260,7 +261,7 @@ class sourceDialog(QDialog):
         
         # Button with OK to close dialog
         b2 = QPushButton("OK",self)
-        b2.clicked.connect(self.end)
+        b2.clicked.connect(self.accept)
 
         # Layout
         layout.addWidget(label)
@@ -270,3 +271,7 @@ class sourceDialog(QDialog):
 
     def end(self):
         self.close()
+    
+    def accept(self):
+        self.launchTabs = True
+        self.end()
