@@ -190,7 +190,6 @@ class ApplicationWindow(QMainWindow):
         sourceDialog(self.sourceList, self.nSource)
         self.selectSource.exec_()
         if (self.selectSource.launchTabs == True) :
-            # from elapsed.canvas import row
             self.nSource = self.selectSource.slist.currentRow()
             self.createTabs()
         else :

@@ -18,7 +18,6 @@ from matplotlib.patches import Ellipse,Arc
 from elapsed.apertures import EllipseInteractor
 from matplotlib.widgets import EllipseSelector
 
-row = 0 
 
 class MplCanvas(FigureCanvas):
     """ Basic matplotlib canvas class """
@@ -280,7 +279,6 @@ class sourceDialog(QDialog):
     
     def accept(self):
         self.launchTabs = True
-        global row
         self.end()
         
     def addEllipse(self):
