@@ -104,7 +104,7 @@ class ApplicationWindow(QMainWindow):
         self.tabs = QTabWidget()
         self.tabs.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
         self.tabs.currentChanged.connect(self.onChange)  # things to do when changing tab
-
+        self.tabs.setTabsClosable(True)
         # Check images for the source (this will be put in a separate list later)
         # Select default source number for start
         self.createTabs()
@@ -174,7 +174,7 @@ class ApplicationWindow(QMainWindow):
         self.selectSource = sourceDialog(self.sourceList, self.nSource)
         
         # Commented out to prevent 'instantaneous' changing of images. Too laggy.
-        # self.selectSource.slist.currentRowChanged.connect(self.updateSource)
+        # self.selectSource.slist.currentRowChanged.connect(self.updateSourceNumber)
         
         # Toolbar
         self.tb = QToolBar()
@@ -190,10 +190,12 @@ class ApplicationWindow(QMainWindow):
         sourceDialog(self.sourceList, self.nSource)
         self.selectSource.exec_()
         if (self.selectSource.launchTabs == True) :
+            # from elapsed.canvas import row
+            self.nSource = self.selectSource.slist.currentRow()
             self.createTabs()
         else :
             pass
-
+        
     def readCentersFilters(self):
         self.centers = pd.read_csv('centers.csv',  names=['source','ra','dec'],skiprows=1, header=None)
         self.filters = pd.read_csv('filters.csv',  names=['filter','wvl','zp','f0','delta'],skiprows=1,
@@ -202,10 +204,14 @@ class ApplicationWindow(QMainWindow):
         )
     
     def createTabs(self):
-        
-        # removes any tabs that already exist from display; does not delete them.
+        print(self.nSource)
+        for index in reversed(range(self.tabs.count())):
+            widget = self.tabs.widget(index)
+            if widget:
+                widget.deleteLater()
         self.tabs.clear()
-        
+
+                 
         sources = self.centers['source'].values
         source = sources[self.nSource]
         
@@ -370,7 +376,8 @@ class ApplicationWindow(QMainWindow):
                     arc.angle = a_
                     arc.center = (x,y)
                 ima.changed = True # To redraw next time tab is open
-
+                
+                
     def zoomAll(self, event):
         ''' propagate limit changes to all images '''
         itab = self.tabs.currentIndex()

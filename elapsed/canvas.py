@@ -10,7 +10,7 @@ from PyQt5.QtCore import QSize, pyqtSignal#, QObject
 
 # FITS
 from astropy.wcs import WCS
-from astropy.wcs.utils import proj_plane_pixel_scales as pixscales
+# from astropy.wcs.utils import proj_plane_pixel_scales as pixscales
 
 #from matplotlib.widgets import Slider 
 from matplotlib.widgets import SpanSelector
@@ -18,6 +18,7 @@ from matplotlib.patches import Ellipse,Arc
 from elapsed.apertures import EllipseInteractor
 from matplotlib.widgets import EllipseSelector
 
+row = 0 
 
 class MplCanvas(FigureCanvas):
     """ Basic matplotlib canvas class """
@@ -249,12 +250,12 @@ class sourceDialog(QDialog):
     
     def __init__(self,stlist,  currentST, parent=None):
         super().__init__()
-        self.currentRow = currentST
+        # self.currentRow = currentST
         path0, file0 = os.path.split(__file__)
         self.setWindowTitle('Title')
         layout = QVBoxLayout()
         self.launchTabs = False
-       
+        self.list = stlist
         label = QLabel("Source Files")        
         self.slist = QListWidget(self)
         self.slist.setSizePolicy(QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding))
@@ -262,7 +263,7 @@ class sourceDialog(QDialog):
         for st in stlist:
             QListWidgetItem(QIcon(path0+"/icons/"+st+"_.png"),st,self.slist)
         # n = stlist.index(currentST)
-        self.slist.setCurrentRow(self.currentRow)
+        # self.slist.setCurrentRow(self.currentRow)
         
         # Button with OK to close dialog
         b2 = QPushButton("OK",self)
@@ -279,6 +280,7 @@ class sourceDialog(QDialog):
     
     def accept(self):
         self.launchTabs = True
+        global row
         self.end()
         
     def addEllipse(self):
