@@ -19,7 +19,7 @@ rcParams['legend.numpoints']=1
 # FITS
 from astropy.io import fits
 from astropy.wcs import WCS
-from astropy.wcs.utils import proj_plane_pixel_scales as pixscales
+# from astropy.wcs.utils import proj_plane_pixel_scales as pixscales
 
 # Connection with PyQt5
 matplotlib.use('Qt5Agg')
@@ -31,6 +31,10 @@ from PyQt5.QtCore import Qt, QThread, QTimer#, QObject
 
 from elapsed.canvas import ImageCanvas, ImageHistoCanvas, ProfileCanvas, SedCanvas
 from elapsed.canvas import sourceDialog
+
+from elapsed.apertures import EllipseInteractor
+from matplotlib.widgets import EllipseSelector
+
 
 def strip(text):
     ''' strips whitespaces out of field'''
@@ -165,6 +169,7 @@ class ApplicationWindow(QMainWindow):
         # Actions
         alignAction = self.createAction(self.path0+'/icons/align.png','Align images','Ctrl+A',self.alignImages)
         self.blink = 'off'
+        ellipseAction = self.createAction(self.path0 + '/icons/ellipse.png', 'Add an ellipse', 'None', self.addEllipse)
         blinkAction = self.createAction(self.path0+'/icons/blink.png','Blink between 2 images','Ctrl+B',self.blinkImages)        
         levelsAction = self.createAction(self.path0+'/icons/levels.png','Adjust image levels','Ctrl+L',self.changeVisibility)        
         sourceAction = self.createAction(self.path0 + '/icons/importimage.png', 'Open Source', 'None', self.updateSource)
@@ -183,6 +188,7 @@ class ApplicationWindow(QMainWindow):
         self.tb.addAction(alignAction)
         self.tb.addAction(blinkAction)
         self.tb.addAction(levelsAction)
+        self.tb.addAction(ellipseAction)
         self.tb.addAction(sourceAction)
         self.file_menu.addAction(sourceAction)
         
@@ -276,8 +282,8 @@ class ApplicationWindow(QMainWindow):
         if itab < len(self.ici):
             ima = self.ici[itab]
             if ima.changed:
-                canvas = ima.arcell[0].figure.canvas
-                canvas.draw_idle()
+                # canvas = ima.arcell[0].figure.canvas
+                ima.fig.canvas.draw_idle()
                 ima.changed = False
             if self.blink == 'select':
                 # Select 2nd tab and start blinking until blink status changes ...
@@ -331,7 +337,7 @@ class ApplicationWindow(QMainWindow):
         t.setLayout(t.layout)
         # connect image to draw events
         ic.mpl_connect('button_release_event', self.onDraw)
-        #ih.mpl_connect('button_release_event', self.onChangeIntensity)
+        # ih.mpl_connect('button_release_event', self.onChangeIntensity)
         ic.mpl_connect('scroll_event',self.onWheel)
         return t,ic,ih
 
@@ -348,34 +354,24 @@ class ApplicationWindow(QMainWindow):
         ''' propagate ellipse changes to other figures '''
         itab = self.tabs.currentIndex()
         ic = self.ici[itab]
-        if ic.drrEllipse.changed:
-            ic.drrEllipse.changed=False
-            x,y = ic.arcell[0].center
-            ra,dec = ic.wcsn.all_pix2world(x,y,1)
-            delta = pixscales(ic.wcsn)
-            w = ic.arcell[0].width*delta[0] # assuming pixels are square
-            h = ic.arcell[0].height*delta[0]
-            a = ic.arcell[0].angle
-            if ic.flip:
-                a = -a
-            ici = self.ici.copy()
-            ici.remove(ic)
+        ici = self.ici.copy()
+        ici.remove(ic)
+        for i, aperture in enumerate(ic.apertures):
+            x0,y0 = aperture.ellipse.center
+            w0 = aperture.ellipse.width
+            h0 = aperture.ellipse.height
+            angle = aperture.ellipse.angle
+            ra0,dec0 = ic.wcs.all_pix2world(x0,y0,1)
+            ws = w0*ic.pixscale; hs = h0*ic.pixscale
             for ima in ici:
-                x,y = ima.wcsn.all_world2pix(ra,dec,1)
-                delta = pixscales(ima.wcsn)
-                w_ = w/delta[0]
-                h_ = h/delta[0]
-                if ima.flip:
-                    a_ = -a
-                else:
-                    a_ = a
-                for arc in ima.arcell:
-                    arc.width = w_
-                    arc.height= h_
-                    arc.angle = a_
-                    arc.center = (x,y)
-                ima.changed = True # To redraw next time tab is open
-                
+                x0,y0 = ima.wcs.all_world2pix(ra0,dec0,1)
+                w0 = ws/ima.pixscale; h0 = hs/ima.pixscale
+                ap = ima.apertures[i]
+                ap.ellipse.center = x0,y0
+                ap.ellipse.width = w0
+                ap.ellipse.angle = angle
+                ap.updateMarkers()
+                ima.changed = True
                 
     def zoomAll(self, event):
         ''' propagate limit changes to all images '''
@@ -470,6 +466,60 @@ class ApplicationWindow(QMainWindow):
         file=open(path0+"/copyright.txt","r")
         message=file.read()
         QMessageBox.about(self, "About", message)
+        
+    def addEllipse(self):
+        itab = self.tabs.currentIndex()
+        ic = self.ici[itab]
+        self.ES = EllipseSelector(ic.axes, self.onRectSelect,
+                                      drawtype='line', useblit=True,
+                                      button=[1, 3],  # don't use middle button
+                                      minspanx=5, minspany=5,
+                                      spancoords='pixels',
+                                      rectprops = dict(facecolor='g', edgecolor = 'g',alpha=0.8, fill=False),
+                                      lineprops = dict(color='g', linestyle='-',linewidth = 2, alpha=0.8), interactive=False)
+        # This allows one to start from the center            
+        self.ES.state.add('center')
+        # self.onRectSelect
+        
+    def onRemoveEllipse(self):
+        pass
+    
+    def onModifiedEllipse(self):
+        pass
+
+    def onRectSelect(self, eclick, erelease):
+        # 'eclick and erelease are the press and release events'        
+        if self.ES is not None:
+            self.ES.set_active(False)
+            for artist in self.ES.artists:
+                artist.remove()
+            self.ES = None  
+        
+        itab = self.tabs.currentIndex()
+        print(itab)
+        
+        ic = self.ici[itab]
+        x1, y1 = eclick.xdata, eclick.ydata
+        x2, y2 = erelease.xdata, erelease.ydata
+        w = np.abs(x1-x2) * 2
+        h = np.abs(y1-y2) * 2
+        # .... and define w and h from that
+        # At this point you can call the EllipseInteractor
+        angle = 0
+        x0 = (x1 + x2)/2.0
+        y0= (y1 + y2)/2.0
+        ws = w * ic.pixscale 
+        hs = h * ic.pixscale
+        r0,d0 = ic.wcs.all_pix2world(x0,y0,1)         
+        # ic.ellipse = EllipseInteractor(ic.axes, (x0, y0), ws, hs)
+        
+        for ic in self.ici:
+            x0, y0 = ic.wcs.all_world2pix(r0,d0,1)
+            w = ws/ic.pixscale; h = hs/ic.pixscale
+            ellipse = EllipseInteractor(ic.axes, (x0,y0), w, h, angle=angle)
+            ellipse.mySignal.connect(self.onRemoveEllipse)
+            ellipse.modSignal.connect(self.onModifiedEllipse)
+            ic.apertures.append(ellipse)
 
 """ Main code """
         
@@ -483,4 +533,5 @@ def main():
     aw.setWindowTitle("%s" % progname)
     aw.show()
     app.exec_()
+
  

@@ -10,13 +10,13 @@ from PyQt5.QtCore import QSize, pyqtSignal#, QObject
 
 # FITS
 from astropy.wcs import WCS
-# from astropy.wcs.utils import proj_plane_pixel_scales as pixscales
+from astropy.wcs.utils import proj_plane_pixel_scales as pixscales
 
 #from matplotlib.widgets import Slider 
 from matplotlib.widgets import SpanSelector
 from matplotlib.patches import Ellipse,Arc
-from elapsed.apertures import EllipseInteractor
-from matplotlib.widgets import EllipseSelector
+# from elapsed.apertures import EllipseInteractor
+# from matplotlib.widgets import EllipseSelector
 
 
 class MplCanvas(FigureCanvas):
@@ -125,9 +125,9 @@ class ImageCanvas(MplCanvas):
 
             # Add ellipse centered on source
             
-            self.ellipse = EllipseInteractor(self.axes, (xc/2, yc/2), xc/4, yc/4)
+            # self.ellipse = EllipseInteractor(self.axes, (xc/2, yc/2), xc/4, yc/4)
 
-            # pixscale = pixscales(self.wcsn)*3600.
+            self.pixscale = pixscales(self.wcsn)[0]*3600.
             #if self.flip:
             #    theta2= 0
             #    theta1 = 100
@@ -148,6 +148,8 @@ class ImageCanvas(MplCanvas):
             # Draw canvas
             #canvas = self.axes.figure.canvas
             #canvas.draw()
+            
+            self.apertures=[]
 
 
     def updateScale(self,val):
@@ -280,27 +282,3 @@ class sourceDialog(QDialog):
     def accept(self):
         self.launchTabs = True
         self.end()
-        
-    def addEllipse(self):
-        self.ES = EllipseSelector(self.figure.axes, self.onRectSelect,
-                                      drawtype='line', useblit=True,
-                                      button=[1, 3],  # don't use middle button
-                                      minspanx=5, minspany=5,
-                                      spancoords='pixels',
-                                      rectprops = dict(facecolor='g', edgecolor = 'g',alpha=0.8, fill=False),
-                                      lineprops = dict(color='g', linestyle='-',linewidth = 2, alpha=0.8), interactive=False)
-        # This allows one to start from the center            
-        self.ES.state.add('center')
-        self.onRectSelect
-
-
-    def onRectSelect(self, eclick, erelease):
-        # 'eclick and erelease are the press and release events'
-        
-        x1, y1 = eclick.xdata, eclick.ydata
-        x2, y2 = erelease.xdata, erelease.ydata
-        w = np.abs(x1-x2) * 2
-        h = np.abs(y1-y2) * 2
-       # .... and define w and h from that
-       # At this point you can call the EllipseInteractor
-        ellipse = EllipseInteractor(10, self.figure.axes, (x1, y1), w, h)

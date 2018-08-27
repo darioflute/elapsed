@@ -768,17 +768,12 @@ from matplotlib.mlab import dist_point_to_segment
 class PolygonInteractor(QObject):
     """
     An polygon editor.
-
     Key-bindings
-
       't' toggle vertex markers on and off.  When vertex markers are on,
           you can move them, delete them
-
       'd' delete the vertex under point
-
       'i' insert a vertex at point.  You must be within epsilon of the
           line connecting two existing vertices
-
     """
 
     showverts = True
@@ -951,4 +946,3 @@ class PolygonInteractor(QObject):
 
     def updateMarkers(self):
         self.line.set_data(zip(*self.poly.xy))
-        
