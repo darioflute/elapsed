@@ -262,6 +262,7 @@ class sourceDialog(QDialog):
         self.slist.setSizePolicy(QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding))
         self.slist.setMaximumSize(QSize(160,150))
         for st in stlist:
+            st = str(st)
             QListWidgetItem(QIcon(path0+"/icons/"+st+"_.png"),st,self.slist)
         # n = stlist.index(currentST)
         # self.slist.setCurrentRow(self.currentRow)
