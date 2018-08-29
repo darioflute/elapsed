@@ -319,7 +319,6 @@ class ApplicationWindow(QMainWindow):
         act.triggered.connect(action)
         return act
 
-        
     def addImage(self,b):
         ''' Add a tab with an image '''
         t = QWidget()
@@ -349,29 +348,28 @@ class ApplicationWindow(QMainWindow):
         ic.image.set_clim(ih.limits)
         ic.fig.canvas.draw_idle()
 
-    
     def onDraw(self, event):
-        ''' propagate ellipse changes to other figures '''
-        itab = self.tabs.currentIndex()
-        ic = self.ici[itab]
-        ici = self.ici.copy()
-        ici.remove(ic)
-        for i, aperture in enumerate(ic.apertures):
-            x0,y0 = aperture.ellipse.center
-            w0 = aperture.ellipse.width
-            h0 = aperture.ellipse.height
-            angle = aperture.ellipse.angle
-            ra0,dec0 = ic.wcs.all_pix2world(x0,y0,1)
-            ws = w0*ic.pixscale; hs = h0*ic.pixscale
-            for ima in ici:
-                x0,y0 = ima.wcs.all_world2pix(ra0,dec0,1)
-                w0 = ws/ima.pixscale; h0 = hs/ima.pixscale
-                ap = ima.apertures[i]
-                ap.ellipse.center = x0,y0
-                ap.ellipse.width = w0
-                ap.ellipse.angle = angle
-                ap.updateMarkers()
-                ima.changed = True
+        pass
+        #itab = self.tabs.currentIndex()
+        #ic = self.ici[itab]
+        #ici = self.ici.copy()
+        #ici.remove(ic)
+        #for i, aperture in enumerate(ic.apertures):
+        #    x0,y0 = aperture.ellipse.center
+        #    w0 = aperture.ellipse.width
+        #    h0 = aperture.ellipse.height
+        #    angle = aperture.ellipse.angle
+        #    ra0,dec0 = ic.wcs.all_pix2world(x0,y0,1)
+        #    ws = w0*ic.pixscale; hs = h0*ic.pixscale
+        #    for ima in ici:
+        #        x0,y0 = ima.wcs.all_world2pix(ra0,dec0,1)
+        #        ap = ima.apertures[i]
+        #        ap.ellipse.center = x0,y0
+        #        ap.ellipse.width = ws/ima.pixscale
+        #        ap.ellipse.height = hs/ima.pixscale
+        #        ap.ellipse.angle = angle
+        #        ap.updateMarkers()
+        #        ima.changed = True
                 
     def zoomAll(self, event):
         ''' propagate limit changes to all images '''
@@ -423,11 +421,9 @@ class ApplicationWindow(QMainWindow):
             ima.axes.set_xlim(x)
             ima.axes.set_ylim(y)
             ima.changed = True
-
             
     def alignImages(self, event):
         ''' Align all images using the same RA-Dec limits as current image '''
-
         itab = self.tabs.currentIndex()
         ic = self.ici[itab]
         if ic.toolbar._active == 'ZOOM':
@@ -470,49 +466,66 @@ class ApplicationWindow(QMainWindow):
     def addEllipse(self):
         itab = self.tabs.currentIndex()
         ic = self.ici[itab]
-        self.ES = EllipseSelector(ic.axes, self.onRectSelect,
-                                      drawtype='line', useblit=True,
-                                      button=[1, 3],  # don't use middle button
-                                      minspanx=5, minspany=5,
-                                      spancoords='pixels',
-                                      rectprops = dict(facecolor='g', edgecolor = 'g',alpha=0.8, fill=False),
-                                      lineprops = dict(color='g', linestyle='-',linewidth = 2, alpha=0.8), interactive=False)
+        self.ES = EllipseSelector(ic.axes, self.onRectSelect, 
+                                  drawtype='line', useblit=True,
+                                  button=[1, 3],  # don't use middle button
+                                  minspanx=5, minspany=5,
+                                  spancoords='pixels',
+                                  rectprops = dict(facecolor='g', edgecolor = 'g',
+                                                   alpha=0.8, fill=False),
+                                  lineprops = dict(color='g', linestyle='-', linewidth = 2,
+                                                   alpha=0.8),
+                                  interactive=False)
         # This allows one to start from the center            
         self.ES.state.add('center')
         # self.onRectSelect
         
     def onRemoveEllipse(self):
+        ''' propagate ellipse removal to other figures '''
         pass
     
     def onModifiedEllipse(self):
-        pass
+        ''' propagate ellipse changes to other figures '''
+        itab = self.tabs.currentIndex()
+        ic = self.ici[itab]
+        ici = self.ici.copy()
+        ici.remove(ic)
+        for i, aperture in enumerate(ic.apertures):
+            x0,y0 = aperture.ellipse.center
+            w0 = aperture.ellipse.width
+            h0 = aperture.ellipse.height
+            angle = aperture.ellipse.angle
+            ra0,dec0 = ic.wcs.all_pix2world(x0,y0,1)
+            ws = w0*ic.pixscale; hs = h0*ic.pixscale
+            for ima in ici:
+                x0,y0 = ima.wcs.all_world2pix(ra0,dec0,1)
+                ap = ima.apertures[i]
+                ap.ellipse.center = x0,y0
+                ap.ellipse.width = ws/ima.pixscale
+                ap.ellipse.height = hs/ima.pixscale
+                ap.ellipse.angle = angle
+                ap.updateMarkers()
+                ima.changed = True
 
     def onRectSelect(self, eclick, erelease):
-        # 'eclick and erelease are the press and release events'        
+        'eclick and erelease are the press and release events'        
         if self.ES is not None:
             self.ES.set_active(False)
             for artist in self.ES.artists:
                 artist.remove()
-            self.ES = None  
-        
+            self.ES = None          
         itab = self.tabs.currentIndex()
-        print(itab)
-        
         ic = self.ici[itab]
         x1, y1 = eclick.xdata, eclick.ydata
         x2, y2 = erelease.xdata, erelease.ydata
-        w = np.abs(x1-x2) * 2
-        h = np.abs(y1-y2) * 2
-        # .... and define w and h from that
-        # At this point you can call the EllipseInteractor
+        w = np.abs(x1-x2) 
+        h = np.abs(y1-y2) 
         angle = 0
         x0 = (x1 + x2)/2.0
-        y0= (y1 + y2)/2.0
+        y0 = (y1 + y2)/2.0
         ws = w * ic.pixscale 
         hs = h * ic.pixscale
-        r0,d0 = ic.wcs.all_pix2world(x0,y0,1)         
-        # ic.ellipse = EllipseInteractor(ic.axes, (x0, y0), ws, hs)
-        
+        r0, d0 = ic.wcs.all_pix2world(x0,y0,1)         
         for ic in self.ici:
             x0, y0 = ic.wcs.all_world2pix(r0,d0,1)
             w = ws/ic.pixscale; h = hs/ic.pixscale

@@ -82,7 +82,8 @@ class ImageCanvas(MplCanvas):
             self.wcs = wcs
 
             self.axes = self.fig.add_axes([0.1,0.1,.8,.8], projection = self.wcsn)
-            self.image = self.axes.imshow(image, cmap='gist_heat_r',interpolation='none',transform=self.axes.get_transform(self.wcs))
+            self.image = self.axes.imshow(image, cmap='gist_heat_r',interpolation='none',
+                                          transform=self.axes.get_transform(self.wcs))
             self.axes.coords[0].set_major_formatter('hh:mm:ss')
             self.axes.grid(color='black', ls='dashed')
             self.axes.set_xlabel('R.A.')
@@ -122,51 +123,18 @@ class ImageCanvas(MplCanvas):
             # Mark center
             xc,yc = self.wcsn.all_world2pix(center[0],center[1],1)
             self.axes.scatter(x=xc,y=yc,marker='+',s=400,c='green')
-
-            # Add ellipse centered on source
-            
-            # self.ellipse = EllipseInteractor(self.axes, (xc/2, yc/2), xc/4, yc/4)
-
             self.pixscale = pixscales(self.wcsn)[0]*3600.
-            #if self.flip:
-            #    theta2= 0
-            #    theta1 = 100
-            #else:
-            #    theta1=0
-            #    theta2=100
-
-
-            # Ellipse
-            # self.arcell = self.ArcEll((xc,yc), 5/pixscale[0], 5/pixscale[1], 'Lime', 30)
-            # for a in self.arcell:
-                # self.axes.add_patch(a)
-                # self.drrEllipse = DragResizeRotateEllipse(self.arcell)
-
             self.changed = False
-
-            
             # Draw canvas
             #canvas = self.axes.figure.canvas
-            #canvas.draw()
-            
+            #canvas.draw()            
             self.apertures=[]
-
 
     def updateScale(self,val):
         _cmin = self.s_cmin.val
         _cmax = self.s_cmax.val
         self.image.set_clim([_cmin, _cmax])
         self.fig.canvas.draw_idle()
-
-    def ArcEll(self,pos,w,h,color,theta):
-
-        arcell = []
-        arcell.append(Ellipse(pos,w,h,edgecolor=color,facecolor='none'))
-        arcell.append(Arc(pos,w,h, edgecolor=color, facecolor='none',theta1=0 -theta,theta2=0 +theta,lw=4))
-        arcell.append(Arc(pos,w,h, edgecolor=color, facecolor='none',theta1=90 -theta,theta2=90 +theta,lw=4))
-        arcell.append(Arc(pos,w,h, edgecolor=color, facecolor='none',theta1=180 -theta,theta2=180 +theta,lw=4))
-        arcell.append(Arc(pos,w,h, edgecolor=color, facecolor='none',theta1=270 -theta,theta2=270 +theta,lw=4))
-        return arcell
 
 
 class ImageHistoCanvas(MplCanvas):
@@ -194,7 +162,8 @@ class ImageHistoCanvas(MplCanvas):
             s = np.size(ima)
             smax = min(int(s*0.9995),s-1)
             nbins=256
-            n, self.bins, patches = self.axes.hist(ima, bins=nbins, range=(np.nanmin(ima), ima[smax]), fc='k', ec='k')
+            n, self.bins, patches = self.axes.hist(ima, bins=nbins, 
+                                                   range=(np.nanmin(ima), ima[smax]), fc='k', ec='k')
             # Define the interval containing 99% of the values
 
             self.x = np.arange(s)
@@ -219,7 +188,8 @@ class ImageHistoCanvas(MplCanvas):
         except:
             pass
         self.mySignal.emit('limits changed')
-        self.shade = self.axes.axvspan(self.limits[0],self.limits[1],facecolor='Lavender',alpha=0.5,linewidth=0)
+        self.shade = self.axes.axvspan(self.limits[0],self.limits[1],facecolor='Lavender',
+                                       alpha=0.5,linewidth=0)
         self.fig.canvas.draw_idle()
 
     

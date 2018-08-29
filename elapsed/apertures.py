@@ -41,10 +41,9 @@ class PixelInteractor(QObject):
 
     
     def __init__(self,ax,corner,width,angle=0.):
-        super().__init__()
         from matplotlib.patches import Rectangle
         from matplotlib.lines import Line2D
-        from matplotlib.artist import Artist
+        super().__init__()
         # To avoid crashing with maximum recursion depth exceeded
         import sys
         sys.setrecursionlimit(10000) # 10000 is 10x the default value
@@ -75,9 +74,9 @@ class PixelInteractor(QObject):
 
     def compute_markers(self):
 
-        theta0 = self.rect.angle / 180.*np.pi
+        # theta0 = self.rect.angle / 180.*np.pi
         w0 = self.rect.get_width()
-        h0 = self.rect.get_height()
+        # h0 = self.rect.get_height()
         x0,y0 = self.rect.get_xy()
         angle0 = self.rect.angle
 
@@ -116,6 +115,7 @@ class PixelInteractor(QObject):
     def rectangle_changed(self, rect):
         'this method is called whenever the polygon object is called'
         # only copy the artist props to the line (except visibility)
+        from matplotlib.artist import Artist
         vis = self.line.get_visible()
         Artist.update_from(self.line, rect)
         self.line.set_visible(vis)  
@@ -255,7 +255,6 @@ class EllipseInteractor(QObject):
         # self.epsilon = epsilon
         from matplotlib.patches import Ellipse
         from matplotlib.lines import Line2D
-        from matplotlib.artist import Artist
         # To avoid crashing with maximum recursion depth exceeded
         import sys
         sys.setrecursionlimit(10000) # 10000 is 10x the default value
@@ -328,6 +327,7 @@ class EllipseInteractor(QObject):
     def ellipse_changed(self, ellipse):
         'this method is called whenever the polygon object is called'
         # only copy the artist props to the line (except visibility)
+        from matplotlib.artist import Artist
         vis = self.line.get_visible()
         Artist.update_from(self.line, ellipse)
         self.line.set_visible(vis)  
@@ -517,7 +517,6 @@ class RectangleInteractor(QObject):
         super().__init__()
         from matplotlib.patches import Rectangle
         from matplotlib.lines import Line2D
-        from matplotlib.artist import Artist
         # To avoid crashing with maximum recursion depth exceeded
         import sys
         sys.setrecursionlimit(10000) # 10000 is 10x the default value
@@ -601,6 +600,7 @@ class RectangleInteractor(QObject):
     def rectangle_changed(self, rect):
         'this method is called whenever the polygon object is called'
         # only copy the artist props to the line (except visibility)
+        from matplotlib.artist import Artist
         vis = self.line.get_visible()
         Artist.update_from(self.line, rect)
         self.line.set_visible(vis)  
@@ -785,7 +785,6 @@ class PolygonInteractor(QObject):
         super().__init__()
         from matplotlib.patches import Polygon
         from matplotlib.lines import Line2D
-        from matplotlib.artist import Artist
 
 
         self.ax = ax
@@ -834,6 +833,7 @@ class PolygonInteractor(QObject):
     def poly_changed(self, poly):
         'this method is called whenever the polygon object is called'
         # only copy the artist props to the line (except visibility)
+        from matplotlib.artist import Artist
         vis = self.line.get_visible()
         Artist.update_from(self.line, poly)
         self.line.set_visible(vis)  # don't use the poly visibility state
