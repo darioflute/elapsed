@@ -379,7 +379,7 @@ class EllipseInteractor(QObject):
             #self.ellipse = None
             #self.line = None
             self.mySignal.emit('ellipse deleted')
-
+        # Check if needed
         self.canvas.draw_idle()
 
     def button_release_callback(self, event):
@@ -666,7 +666,7 @@ class RectangleInteractor(QObject):
         self.lock = "released"
         self.background = None
         # To get other aperture redrawn
-        self.canvas.draw_idle()
+        # self.canvas.draw_idle()
         
 
     def motion_notify_callback(self, event):

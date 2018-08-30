@@ -14,7 +14,7 @@ from astropy.wcs.utils import proj_plane_pixel_scales as pixscales
 
 #from matplotlib.widgets import Slider 
 from matplotlib.widgets import SpanSelector
-from matplotlib.patches import Ellipse,Arc
+# from matplotlib.patches import Ellipse,Arc
 # from elapsed.apertures import EllipseInteractor
 # from matplotlib.widgets import EllipseSelector
 
