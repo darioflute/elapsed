@@ -82,6 +82,12 @@ class ImageCanvas(MplCanvas):
             self.wcs = wcs
 
             self.axes = self.fig.add_axes([0.1,0.1,.8,.8], projection = self.wcsn)
+            self.intensity = image
+            # Create a grid of points
+            self.ny,self.nx = np.shape(self.intensity)
+            xi = np.arange(self.nx); yi = np.arange(self.ny)
+            xi,yi = np.meshgrid(xi,yi)
+            self.points = np.array([np.ravel(xi),np.ravel(yi)]).transpose()
             self.image = self.axes.imshow(image, cmap='gist_heat_r',interpolation='none',
                                           transform=self.axes.get_transform(self.wcs))
             self.axes.coords[0].set_major_formatter('hh:mm:ss')

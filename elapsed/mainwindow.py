@@ -173,6 +173,7 @@ class ApplicationWindow(QMainWindow):
         blinkAction = self.createAction(self.path0+'/icons/blink.png','Blink between 2 images','Ctrl+B',self.blinkImages)        
         levelsAction = self.createAction(self.path0+'/icons/levels.png','Adjust image levels','Ctrl+L',self.changeVisibility)        
         sourceAction = self.createAction(self.path0 + '/icons/importimage.png', 'Open Source', 'None', self.updateSource)
+        waveAction = self.createAction(self.path0 + '/icons/wave.png', 'Order bands by wavelength', 'None', self.orderWave)
         sources = self.centers['source'].values
         self.sourceList = sources
         # import this
@@ -190,6 +191,7 @@ class ApplicationWindow(QMainWindow):
         self.tb.addAction(levelsAction)
         self.tb.addAction(ellipseAction)
         self.tb.addAction(sourceAction)
+        self.tb.addAction(waveAction)
         self.file_menu.addAction(sourceAction)
         
     def updateSource(self, event):
@@ -231,16 +233,16 @@ class ApplicationWindow(QMainWindow):
         files = np.array(files)
         
         bands = [os.path.splitext(os.path.basename(f))[0] for f in files]
-        w = []
+        self.w = []
         newbands = bands.copy()
         for b in bands:
             try:
-                w.append(self.filters.loc[b]['wvl'])
+                self.w.append(self.filters.loc[b]['wvl'])
             except:
                 print (b,' removed because is not in the filter list')
                 newbands.remove(b)
         bands = np.array(newbands)
-        self.bands = bands[np.argsort(w)].tolist()
+        self.bands = bands[np.argsort(self.w)].tolist()
         
         self.openTabs()
             
@@ -467,7 +469,7 @@ class ApplicationWindow(QMainWindow):
                                                    alpha=0.8, fill=False),
                                   lineprops = dict(color='g', linestyle='-', linewidth = 2,
                                                    alpha=0.8),
-                                  interactive=False)
+                                  interactive=True)
         # This allows one to start from the center            
         self.ES.state.add('center')
         # self.onRectSelect
@@ -504,8 +506,8 @@ class ApplicationWindow(QMainWindow):
         if self.ES is not None:
             self.ES.set_active(False)
             for artist in self.ES.artists:
-                artist.remove()
-            self.ES = None          
+               artist.remove()
+               self.ES = None          
         itab = self.tabs.currentIndex()
         ic0 = self.ici[itab]
         x1, y1 = eclick.xdata, eclick.ydata
@@ -525,11 +527,62 @@ class ApplicationWindow(QMainWindow):
             ellipse.mySignal.connect(self.onRemoveEllipse)
             ellipse.modSignal.connect(self.onModifiedEllipse)
             ic.apertures.append(ellipse)
-            #if ic == ic0:
+            # if ic == ic0:
             #    ic.fig.canvas.draw_idle()
-            #else:
+            # else:
             #    ic.changed = True
 
+    def orderWave(self):
+        # ic = current canvas
+
+        # ima = current image
+        itab = self.tabs.currentIndex()
+        ic = self.ici[itab]
+        self.flux = []
+        # read the image and conserve in a structure of class
+        ima = self.ici[0]
+        
+        for aperture in ic.apertures:
+            ellipse = aperture.aperture
+            path = ellipse.get_path()
+            transform = ellipse.get_patch_transform()
+            npath = transform.transform_path(path)
+            inpoints = ima.points[npath.contains_points(ima.points)]
+            xx,yy = inpoints.T
+            print(xx)
+            # Total flux will be the sum of the image values on the pixels xx,yy
+            self.flux.append(np.nansum(ima.intensity[xx,yy]))
+            
+        self.flux = np.array(self.flux)
+        print(self.flux)
+        
+        
+        # go through the images and grab points
+        # each image has different calibration
+        # each image has photometric zeros
+        # transform cans into flux
+        # electrons -> photos
+        # from electrons you need to find incident flux
+        # you know it if you have gain, etc. everything you need for a detector
+        # some of them are calibrated
+        # 
+        
+        # With a button, you start the calculation or fluxes in all the image tabs
+        # Then, you plot these points in the left panel
+        # As a X value, you shold use the wavelengths of the images
+        
+        # In createTabs(mainwindow), we should conserve the w list which is used
+        # to order bands according to wavelength.
+        
+        
+        # def computefluxes(pass aperture, for now apertuure 0)
+        # for all image canvas
+        # compute flux
+        # then store in flux array
+        
+        self.w.sort()
+        self.wavelength = self.w
+        
 """ Main code """
         
 def main():
